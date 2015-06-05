@@ -1,0 +1,51 @@
+Installation Notes
+==================
+Installation instructions for Transparent Data Encryption for PostgreSQL Free Edition
+
+Requirements
+============
+1. PostgreSQL 9.3 Source Code
+2. PostgreSQL 9.3 with psql installed
+
+Installation and Configuration
+==============================
+1. Setting environment variables
+    $ export PGSRC = #path of PostgreSQL source code
+    $ export PGHOME = #path of PostgreSQL installed
+    $ export TDEHOME = #path of pgTDE downloaded
+
+2. Install pgcrypto from source code
+    # If you have already installed pgcrypto, you can skip this section.
+    $ cd $PGSRC/contrib/pgcrypto
+    $ gmake
+    $ gmake install
+    $ pg_ctl start
+    $ psql << EOF
+    > CREATE EXTENSION pgcrypto;
+    > EOF
+
+3. Building pgTDE
+    $ sudo ln -s $PGHOME/lib/pgcrypto.so /usr/lib64/libpgcrypto.so
+    $ cd $PGSRC
+    $ ./configure
+    $ cd $TDEHOME/SOURCES/data_encryption
+    $ sh makedencryption.sh 93 $PGSRC
+
+4. install pgTDE to PostgreSQL
+    $ sudo ln -s $TDEHOME/SOURCES/data_encryption/93/data_encryption93.so /usr/lib64/data_encryption.so
+    $ vim $PGDATA/postgresql.conf  # add shared_preload_libraries to postgresql.conf 
+    shared_preload_libraries='/usr/lib64/data_encryption.so'
+    $ pg_ctl restart
+    $ cd $TDEHOME/SOURCES
+    $ sh bin/cipher_setup.sh $PGHOME
+    Transparent data encryption feature setup script
+    Please select from the setup menu below
+    Transparent data encryption feature setup menu
+    1: activate  the transparent data encryption feature
+    2: inactivate the transparent data encryption feature
+    select menu [1 - 2] > 1
+    Please enter database server port to connect : <port_number>
+    Please enter database user name to connect : <user_name>
+    Please enter password for authentication : <password>
+    Please enter database name to connect : <db_name>
+

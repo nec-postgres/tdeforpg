@@ -1,0 +1,16 @@
+Transparent Data Encryption for PostgreSQL Free Edition
+=======================================================
+
+This directory contains the source code of the Transparent Data Encryption for PostgreSQL.
+
+Transparent Data Encryption for PostgreSQL is Encryption tool for PostgreSQL. 
+It is add encrypted data types to PostgreSQL. 
+
+Please refer to the manual for detail information
+    
+        https://github.com/nec-postgres/tdeforpg/wiki/Manual(JP)
+
+If you interested in Enterprise Edition which has advanced TDE and data maintenance function.
+Please refer to the below URL
+
+        http://jpn.nec.com/tdeforpg
