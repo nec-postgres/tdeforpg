@@ -704,12 +704,8 @@ bool
 enc_drop_key_info(void)
 {
 	if (newest_key_info != NULL) {
-		if (newest_key_info->key != NULL) {
-			free(newest_key_info->key);
-		}
-		if (newest_key_info->algorithm != NULL) {
-			free(newest_key_info->algorithm);
-		}
+		free(newest_key_info->key);
+		free(newest_key_info->algorithm);
 		free(newest_key_info);
 		newest_key_info = NULL;
 
@@ -733,12 +729,8 @@ Datum
 enc_drop_old_key_info(void)
 {
 	if (old_key_info != NULL) {
-		if (old_key_info->key != NULL) {
-			free(old_key_info->key);
-		}
-		if (old_key_info->algorithm != NULL) {
-			free(old_key_info->algorithm);
-		}
+		free(old_key_info->key);
+		free(old_key_info->algorithm);
 		free(old_key_info);
 		old_key_info = NULL;
 
