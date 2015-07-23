@@ -33,6 +33,7 @@
 #include "utils/memutils.h"
 
 #include "pgcrypto.h"
+#include "px.h"
 
 #include "data_encryption.h"
 
@@ -413,81 +414,6 @@ enc_compeq_enctext(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(result);
 }
 
-/*
- * Function : enc_compeq_text_enctext
- * ---------------------
- * return true if input plaintext and ciphertext are equal
- *
- * @param	*text ARG[0]		input data1(plain text)
- * @param	*bytea ARG[1]		input data2(cipher text)
- * @return	true ARG[0] and ARG[1] are equal
- */
-PG_FUNCTION_INFO_V1(enc_compeq_text_enctext);
-
-Datum
-enc_compeq_text_enctext(PG_FUNCTION_ARGS)
-{
-	text *arg1 = PG_GETARG_TEXT_PP(0);
-	text *arg2 = NULL;
-	Datum tmp;
-
-	bool result = true;
-
-	tmp = DirectFunctionCall1(enctext_out, PG_GETARG_DATUM(1));
-	arg2 = (text *) DatumGetPointer(DirectFunctionCall1(textin, tmp));
-	pfree(DatumGetPointer(tmp));
-
-	if (VARSIZE_ANY_EXHDR(arg1) != VARSIZE_ANY_EXHDR(arg2)) {
-		result = false;
-	}
-	else {
-		result = (strncmp(VARDATA_ANY(arg1), VARDATA_ANY(arg2), VARSIZE_ANY_EXHDR(arg1)) == 0);
-	}
-
-	PG_FREE_IF_COPY(arg1, 0);
-	PG_FREE_IF_COPY(arg2, 1);
-
-	PG_RETURN_BOOL(result);
-}
-
-
-/*
- * Function : enc_compeq_enctext_text
- * ---------------------
- * return true if input ciphertext and plainrtext are equal
- *
- * @param	*bytea ARG[0]	input data1(cipher text)
- * @param	*text ARG[1]		input data2(plain text)
- * @return	true ARG[0] and ARG[0] are equal
- */
-PG_FUNCTION_INFO_V1(enc_compeq_enctext_text);
-
-Datum
-enc_compeq_enctext_text(PG_FUNCTION_ARGS)
-{
-	text *arg1 = NULL;
-	text *arg2 = PG_GETARG_TEXT_PP(1);
-	Datum tmp;
-
-	bool result = true;
-
-	tmp = DirectFunctionCall1(enctext_out, PG_GETARG_DATUM(0));
-	arg1 = (text *) DatumGetPointer(DirectFunctionCall1(textin, tmp));
-	pfree(DatumGetPointer(tmp));
-
-	if (VARSIZE_ANY_EXHDR(arg1) != VARSIZE_ANY_EXHDR(arg2)) {
-		result = false;
-	}
-	else {
-		result = (strncmp(VARDATA_ANY(arg1), VARDATA_ANY(arg2), VARSIZE_ANY_EXHDR(arg2)) == 0);
-	}
-
-	PG_FREE_IF_COPY(arg1, 0);
-	PG_FREE_IF_COPY(arg2, 1);
-
-	PG_RETURN_BOOL(result);
-}
-
 
 /*
  * Function : enc_compeq_encbytea
@@ -527,94 +453,60 @@ enc_compeq_encbytea(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(result);
 }
 
-
-/*
- * Function : enc_compeq_bytea_encbytea
- * ---------------------
- * return true if input binary plaintext and binary ciphertext are equal
- *
- * @param	*bytea ARG[0]		input data1(plain text)
- * @param	*bytea ARG[1]		input data2(cipher text)
- * @return	true ARG[0] and ARG[1] are equal
- */
-PG_FUNCTION_INFO_V1(enc_compeq_bytea_encbytea);
-
+/* cast function */
+PG_FUNCTION_INFO_V1(boolenctext);
 Datum
-enc_compeq_bytea_encbytea(PG_FUNCTION_ARGS)
+boolenctext(PG_FUNCTION_ARGS)
 {
-	bytea *arg1  = PG_GETARG_BYTEA_PP(0);
-	bytea *arg2  = NULL;
-	Datum tmp;
+	bool arg1 = PG_GETARG_BOOL(0);
+	const char *str;
 
-	int len1 = 0;
-	int len2 = 0;
-	bool result = true;
-
-	tmp = DirectFunctionCall1(encbytea_out, PG_GETARG_DATUM(1));
-	arg2 = (bytea *) DatumGetPointer(DirectFunctionCall1(byteain, tmp));
-	pfree(DatumGetPointer(tmp));
-
-	len1 = VARSIZE_ANY_EXHDR(arg1);
-	len2 = VARSIZE_ANY_EXHDR(arg2);
-
-	/* return false, if length of barg1 and barg2 are different */
-	if (len1 != len2) {
-		result = false;
-	}
-	else {
-		result = (memcmp(VARDATA_ANY(arg1), VARDATA_ANY(arg2), len1) == 0);
+	if (arg1) {
+		str = "true";
+	} else {
+		str = "false";
 	}
 
-	PG_FREE_IF_COPY(arg1, 0);
-	PG_FREE_IF_COPY(arg2, 1);
-
-	PG_RETURN_BOOL(result);
+	PG_RETURN_DATUM(DirectFunctionCall1(enctext_in, CStringGetDatum(str)));
 }
 
-
-/*
- * Function : enc_compeq_encbytea_bytea
- * ---------------------
- * return true if input binary ciphertext and binary plaintext are equal
- *
- * @param	*bytea ARG[0]	input data1(cipher text)
- * @param	*bytea ARG[1]		input data2(plain text)
- * @return	true, if it is true ARG[0] and ARG[0] are equal
- */
-PG_FUNCTION_INFO_V1(enc_compeq_encbytea_bytea);
-
+PG_FUNCTION_INFO_V1(enctextrtrim);
 Datum
-enc_compeq_encbytea_bytea(PG_FUNCTION_ARGS)
+enctextrtrim(PG_FUNCTION_ARGS)
 {
-	bytea *arg1  = NULL;
-	bytea *arg2  = PG_GETARG_BYTEA_PP(1);
-	Datum tmp;
+	text   *str = (text *)DatumGetPointer(DirectFunctionCall1(rtrim1, PG_GETARG_DATUM(0)));
 
-	int len1 = 0;
-	int len2 = 0;
-	bool result = true;
-
-	tmp = DirectFunctionCall1(encbytea_out, PG_GETARG_DATUM(0));
-	arg1 = (bytea *) DatumGetPointer(DirectFunctionCall1(byteain, tmp));
-	pfree(DatumGetPointer(tmp));
-
-	len1 = VARSIZE_ANY_EXHDR(arg1);
-	len2 = VARSIZE_ANY_EXHDR(arg2);
-
-	/* return false, if length of barg1 and barg2 are different */
-	if (len1 != len2) {
-		result = false;
-	}
-	else {
-		result = (memcmp(VARDATA_ANY(arg1), VARDATA_ANY(arg2), len2) == 0);
-	}
-
-	PG_FREE_IF_COPY(arg1, 0);
-	PG_FREE_IF_COPY(arg2, 1);
-
-	PG_RETURN_BOOL(result);
+	PG_RETURN_DATUM(DirectFunctionCall1(enctext_in, CStringGetDatum(text_to_cstring(str))));
 }
 
+PG_FUNCTION_INFO_V1(inetenctext);
+Datum
+inetenctext(PG_FUNCTION_ARGS)
+{
+	text   *str = (text *)DatumGetPointer(DirectFunctionCall1(network_show, PG_GETARG_DATUM(0)));
+
+	PG_RETURN_DATUM(DirectFunctionCall1(enctext_in, CStringGetDatum(text_to_cstring(str))));
+}
+
+PG_FUNCTION_INFO_V1(xmlenctext);
+Datum
+xmlenctext(PG_FUNCTION_ARGS)
+{
+	text   *str = (text *)PG_GETARG_TEXT_PP(0);
+
+	PG_RETURN_DATUM(DirectFunctionCall1(enctext_in, CStringGetDatum(text_to_cstring(str))));
+}
+
+PG_FUNCTION_INFO_V1(enctext_regclass);
+Datum
+enctext_regclass(PG_FUNCTION_ARGS)
+{
+	char *str = NULL;
+
+	str = (char *)DatumGetCString(DirectFunctionCall1(enctext_out, PG_GETARG_DATUM(0)));
+
+	PG_RETURN_DATUM(DirectFunctionCall1(text_regclass, PointerGetDatum(cstring_to_text((str)))));
+}
 
 /*
  * Function : enc_hash_encdata

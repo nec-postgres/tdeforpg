@@ -12,8 +12,8 @@ SET check_function_bodies TO off;
 /* CREATE TRUSTED LANGUAGE 'plpgsql' HANDLER language_handler_in;*/
 
 	/* drop if encrypted data types are already exist */
-	DROP TYPE IF EXISTS encrypt_text CASCADE;
-	DROP TYPE IF EXISTS encrypt_bytea CASCADE;
+	--DROP TYPE IF EXISTS encrypt_text CASCADE;
+	--DROP TYPE IF EXISTS encrypt_bytea CASCADE;
 
 	/* create encrypted data types */
 	CREATE TYPE encrypt_text;
@@ -26,7 +26,7 @@ SET check_function_bodies TO off;
 		encrypt_text
 	AS
 		'/usr/lib64/data_encryption.so','enctext_in'
-	LANGUAGE C STRICT;
+	LANGUAGE C STABLE STRICT;
 
 	/* define output function of encrypted text type */
 	CREATE FUNCTION
@@ -35,7 +35,7 @@ SET check_function_bodies TO off;
 		cstring
 	AS
 		'/usr/lib64/data_encryption.so','enctext_out'
-	LANGUAGE C IMMUTABLE STRICT;
+	LANGUAGE C STABLE STRICT;
 
 	/* define recv function of encrypted text type */
 	CREATE FUNCTION 
@@ -44,7 +44,7 @@ SET check_function_bodies TO off;
 		encrypt_text
 	AS
 		'/usr/lib64/data_encryption.so','encrecv'
-	LANGUAGE C STRICT;
+	LANGUAGE C IMMUTABLE STRICT;
 
 	/* define send function of encrypted text type */
 	CREATE FUNCTION 
@@ -53,7 +53,7 @@ SET check_function_bodies TO off;
 		bytea
 	AS
 		'/usr/lib64/data_encryption.so','encsend'
-	LANGUAGE C STRICT;
+	LANGUAGE C IMMUTABLE STRICT;
 
 	/* define input function of encrypted binary type */
 	CREATE FUNCTION
@@ -62,7 +62,7 @@ SET check_function_bodies TO off;
 		encrypt_bytea
 	AS
 		'/usr/lib64/data_encryption.so','encbytea_in'
-	LANGUAGE C STRICT;
+	LANGUAGE C STABLE STRICT;
 
 	/* define output function of encrypted binary type */
 	CREATE FUNCTION
@@ -71,7 +71,7 @@ SET check_function_bodies TO off;
 		cstring
 	AS
 		'/usr/lib64/data_encryption.so','encbytea_out'
-	LANGUAGE C IMMUTABLE STRICT;
+	LANGUAGE C STABLE STRICT;
 	
 	/* define recv function of encrypted binary type */
 	CREATE FUNCTION 
@@ -80,7 +80,7 @@ SET check_function_bodies TO off;
 		encrypt_bytea
 	AS
 		'/usr/lib64/data_encryption.so','encrecv'
-	LANGUAGE C STRICT;
+	LANGUAGE C IMMUTABLE STRICT;
 
 	/* define send function of encrypted binary type */
 	CREATE FUNCTION 
@@ -89,7 +89,7 @@ SET check_function_bodies TO off;
 		bytea
 	AS
 		'/usr/lib64/data_encryption.so','encsend'
-	LANGUAGE C STRICT;
+	LANGUAGE C IMMUTABLE STRICT;
 
 	/* define encrypted text types */
 	CREATE TYPE ENCRYPT_TEXT (
@@ -99,7 +99,8 @@ SET check_function_bodies TO off;
 		, SEND = enctext_send
 		, INTERNALLENGTH = VARIABLE
 		, ALIGNMENT = int4
-		, STORAGE = extended);
+		, STORAGE = extended
+		, CATEGORY = 'S');
 
 	/* define encrypted binary types */
 	CREATE TYPE ENCRYPT_BYTEA (
@@ -109,7 +110,8 @@ SET check_function_bodies TO off;
 		, SEND = encbytea_send
 		, INTERNALLENGTH = VARIABLE
 		, ALIGNMENT = int4
-		, STORAGE = extended);
+		, STORAGE = extended
+		, CATEGORY = 'U');
 
 	/* index operator of encrypted text types */
 	CREATE OR REPLACE FUNCTION
@@ -118,23 +120,7 @@ SET check_function_bodies TO off;
 		bool
 	AS
 		'/usr/lib64/data_encryption.so','enc_compeq_enctext'
-	LANGUAGE C STRICT;
-
-	/* compare function of encrypted text type and text */
-	CREATE OR REPLACE FUNCTION
-		enc_compeq_text_enctext(text,encrypt_text)
-	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_compeq_text_enctext'
-	LANGUAGE C STRICT;
-	CREATE OR REPLACE FUNCTION
-		enc_compeq_enctext_text(encrypt_text,text)
-	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_compeq_enctext_text'
-	LANGUAGE C STRICT;
+	LANGUAGE C STABLE STRICT;
 
 	/* index operator of encrypted binary types */
 	CREATE OR REPLACE FUNCTION
@@ -143,23 +129,7 @@ SET check_function_bodies TO off;
 		bool
 	AS
 		'/usr/lib64/data_encryption.so','enc_compeq_encbytea'
-	LANGUAGE C STRICT;
-
-	/* compare encrypted binary type and binary */
-	CREATE OR REPLACE FUNCTION
-		enc_compeq_bytea_encbytea(bytea,encrypt_bytea)
-	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_compeq_bytea_encbytea'
-	LANGUAGE C STRICT;
-	CREATE OR REPLACE FUNCTION
-		enc_compeq_encbytea_bytea(encrypt_bytea,bytea)
-	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_compeq_encbytea_bytea'
-	LANGUAGE C STRICT;
+	LANGUAGE C STABLE STRICT;
 
 	/* hash function for encrypted text */
 	CREATE OR REPLACE FUNCTION
@@ -197,7 +167,7 @@ SET check_function_bodies TO off;
 		'/usr/lib64/data_encryption.so','enc_store_old_key_info'
 	LANGUAGE C STRICT;
 
-	/* drops key informaiton from memory */
+	/* drops key information from memory */
 	CREATE OR REPLACE FUNCTION
 		enc_drop_key_info()
 	RETURNS
@@ -250,20 +220,6 @@ SET check_function_bodies TO off;
 	CREATE OPERATOR = (
 	leftarg = encrypt_bytea, rightarg = encrypt_bytea, procedure = enc_compeq_encbytea, restrict = eqsel, join = eqjoinsel );
 
-/* define index operator for encrypted type and plain type */
-	/* text → encrypted text */
-	CREATE OPERATOR = (
-	leftarg = text, rightarg = encrypt_text, procedure = enc_compeq_text_enctext, commutator = =, restrict = eqsel, join = eqjoinsel );
-	/* encrypted text → text */
-	CREATE OPERATOR = (
-	leftarg = encrypt_text, rightarg = text, procedure = enc_compeq_enctext_text, commutator = =, restrict = eqsel, join = eqjoinsel );
-	/* binary → encrypted binary */
-	CREATE OPERATOR = (
-	leftarg = bytea, rightarg = encrypt_bytea, procedure = enc_compeq_bytea_encbytea, commutator = =, restrict = eqsel, join = eqjoinsel );
-	/* encrypted binary → binary */
-	CREATE OPERATOR = (
-	leftarg = encrypt_bytea, rightarg = bytea, procedure = enc_compeq_encbytea_bytea, commutator = =, restrict = eqsel, join = eqjoinsel );
-
 /* define index for encrypted type column */
 	/* define hash index for encrypted text */
 	CREATE OPERATOR CLASS
@@ -288,6 +244,46 @@ SET check_function_bodies TO off;
 		FUNCTION 		1	   enc_hash_encbytea(encrypt_bytea);
 
 /* define cast function for encrypted type column */
+	CREATE OR REPLACE FUNCTION
+		enctext(boolean)
+	RETURNS
+		encrypt_text
+	AS
+		'/usr/lib64/data_encryption.so','boolenctext'
+	LANGUAGE C STRICT;
+
+	CREATE OR REPLACE FUNCTION
+		enctext(character)
+	RETURNS
+		encrypt_text
+	AS
+		'/usr/lib64/data_encryption.so','enctextrtrim'
+	LANGUAGE C STABLE STRICT;
+
+	CREATE OR REPLACE FUNCTION
+		enctext(inet)
+	RETURNS
+		encrypt_text
+	AS
+		'/usr/lib64/data_encryption.so','inetenctext'
+	LANGUAGE C STABLE STRICT;
+
+	CREATE OR REPLACE FUNCTION
+		enctext(xml)
+	RETURNS
+		encrypt_text
+	AS
+		'/usr/lib64/data_encryption.so','xmlenctext'
+	LANGUAGE C STABLE STRICT;
+
+	CREATE OR REPLACE FUNCTION
+		regclass(encrypt_text)
+	RETURNS
+		regclass
+	AS
+		'/usr/lib64/data_encryption.so','enctext_regclass'
+	LANGUAGE C STABLE STRICT;
+
 	/* encrypted test →  text */
 	CREATE CAST
 		(encrypt_text AS text)
@@ -297,7 +293,37 @@ SET check_function_bodies TO off;
 	CREATE CAST
 		(text AS encrypt_text)
 	WITH INOUT
-	AS IMPLICIT;
+	AS ASSIGNMENT;
+	/* boolean →  encrypted text */
+	CREATE CAST
+		(boolean AS encrypt_text)
+	WITH FUNCTION enctext(boolean)
+	AS ASSIGNMENT;
+	/* character →  encrypted text */
+	CREATE CAST
+		(character AS encrypt_text)
+	WITH FUNCTION enctext(character)
+	AS ASSIGNMENT;
+	/* cidr →  encrypted text */
+	CREATE CAST
+		(cidr AS encrypt_text)
+	WITH FUNCTION enctext(inet)
+	AS ASSIGNMENT;
+	/* inet →  encrypted text */
+	CREATE CAST
+		(inet AS encrypt_text)
+	WITH FUNCTION enctext(inet)
+	AS ASSIGNMENT;
+	/* xml →  encrypted text */
+	CREATE CAST
+		(xml AS encrypt_text)
+	WITH FUNCTION enctext(xml)
+	AS ASSIGNMENT;
+	/* encrypted text →  regclass */
+	CREATE CAST
+		(encrypt_text AS regclass)
+	WITH FUNCTION regclass(encrypt_text)
+	AS ASSIGNMENT;
 
 	/* binary →  encrypted binary */
 	CREATE CAST
@@ -308,7 +334,7 @@ SET check_function_bodies TO off;
 	CREATE CAST
 		(bytea AS encrypt_bytea)
 	WITH INOUT
-	AS IMPLICIT;
+	AS ASSIGNMENT;
 
 /* define table for managing encryption key */
 	DROP TABLE IF EXISTS cipher_key_table;
