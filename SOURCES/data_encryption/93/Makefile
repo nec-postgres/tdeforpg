@@ -30,20 +30,5 @@ $(BINARY): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) $(IFLAGS) $<
 
-install: $(BINARY)
-	@if [ -d $(INSTDIR) ];	\
-	then	\
-		cp $(BINARY) $(INSTDIR)/ &&	\
-		chmod a+x $(INSTDIR)/$(BIN) &&	\
-		echo "";	\
-		echo "[SUCCESS] $(BINARY) Installed Complete in '$(INSTDIR)'.";	\
-		echo "";	\
-	else	\
-		echo "[ERROR] $(BINARY) Installed Failure.($(INSTDIR) does't exist)";	\
-	fi
-
-uninstall:
-	rm -f $(INSTDIR)/$(BIN)
-
 clean: 
 	rm -f $(BINARY) $(OBJS)
