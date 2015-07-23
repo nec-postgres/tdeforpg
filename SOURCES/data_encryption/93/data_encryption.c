@@ -149,6 +149,8 @@ enctext_in(PG_FUNCTION_ARGS)
 							PointerGetDatum(tmp_algorithm)));
 
 		pfree(tmp_data);
+		/* do not leave anything relate to key info in memory*/
+		px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
 		pfree(tmp_key);
 		pfree(tmp_algorithm);
 
@@ -223,6 +225,8 @@ enctext_out(PG_FUNCTION_ARGS)
 
 		pfree(encrypted_data);
 		pfree(DatumGetPointer(tmp_result));
+		/* do not leave anything relate to key info in memory*/
+		px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
 		pfree(tmp_key);
 		pfree(tmp_algorithm);
 	}
@@ -278,6 +282,8 @@ encbytea_in(PG_FUNCTION_ARGS)
 							PointerGetDatum(tmp_algorithm)));
 
 		pfree(tmp_data);
+		/* do not leave anything relate to key info in memory*/
+		px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
 		pfree(tmp_key);
 		pfree(tmp_algorithm);
 
@@ -351,6 +357,8 @@ encbytea_out(PG_FUNCTION_ARGS)
 
 		pfree(encrypted_data);
 		pfree(DatumGetPointer(tmp_result));
+		/* do not leave anything relate to key info in memory*/
+		px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
 		pfree(tmp_key);
 		pfree(tmp_algorithm);
 	}
@@ -654,6 +662,8 @@ bool
 drop_key_info(key_info* entry) {
 	if(entry != NULL) {
 		if (entry->key != NULL) {
+				/* do not leave anything relate to key info in memory*/
+				px_memset(entry->key,0,sizeof(entry->key));
 				pfree(entry->key);
 			}
 			if (entry->algorithm != NULL) {
