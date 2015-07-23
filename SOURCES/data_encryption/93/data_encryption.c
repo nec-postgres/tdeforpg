@@ -30,6 +30,7 @@
 #include "mb/pg_wchar.h"
 #include "access/hash.h"
 #include "libpq/pqformat.h"
+#include "utils/memutils.h"
 
 #include "pgcrypto.h"
 
@@ -633,6 +634,36 @@ enc_hash_encdata(PG_FUNCTION_ARGS)
 	return result;
 }
 
+key_info* create_key_info(text* key, text* algorithm) {
+	key_info* entry;
+	MemoryContext old_mem_context;
+
+	/* cipher key must be stored in TopMemoryContext */
+	old_mem_context = MemoryContextSwitchTo(TopMemoryContext);
+	entry =(key_info*) palloc(sizeof(key_info));
+	/* caution text_to_cstring function using palloc internally
+	 * it must be free by pfree function */
+	entry->key       = (char*) text_to_cstring(key);
+	entry->algorithm = (char*) text_to_cstring(algorithm);
+	MemoryContextSwitchTo(old_mem_context);
+
+	return entry;
+}
+
+bool
+drop_key_info(key_info* entry) {
+	if(entry != NULL) {
+		if (entry->key != NULL) {
+				pfree(entry->key);
+			}
+			if (entry->algorithm != NULL) {
+				pfree(entry->algorithm);
+			}
+			pfree(entry);
+			return true;
+	}
+	return false;
+}
 
 /*
  * Function : enc_store_key_info
@@ -643,26 +674,18 @@ enc_hash_encdata(PG_FUNCTION_ARGS)
  * @param	*text ARG[1]	encryption algorithm
  */
 PG_FUNCTION_INFO_V1(enc_store_key_info);
-
 Datum
 enc_store_key_info(PG_FUNCTION_ARGS)
 {
 	text *key = PG_GETARG_TEXT_P(0); /* encryption key */
 	text *algorithm = PG_GETARG_TEXT_P(1); /* encryption algorithm */
 
-	/* memory allocation */
-	key_info *entry = (key_info *) malloc(sizeof(key_info));
-
-	/* store key information to entry */
-	entry->key = (char *) strdup(text_to_cstring(key));
-	entry->algorithm = (char *) strdup(text_to_cstring(algorithm));
-
-	/* update lastest key with specified new key information */
-	newest_key_info = entry;
+	drop_key_info(newest_key_info);
+	/* set current key information */
+	newest_key_info = create_key_info(key, algorithm);
 
 	PG_RETURN_BOOL(TRUE);
 }
-
 
 /*
  * Function : enc_store_old_key_info
@@ -681,15 +704,9 @@ enc_store_old_key_info(PG_FUNCTION_ARGS)
 	text *key = PG_GETARG_TEXT_P(0); /* encryption key */
 	text *algorithm = PG_GETARG_TEXT_P(1); /* encryption algorithm */
 
-	/* memory allocation */
-	key_info *entry = malloc(sizeof(key_info));
-
-	/* store key information to entry */
-	entry->key = (char *) strdup(text_to_cstring(key));
-	entry->algorithm = (char *) strdup(text_to_cstring(algorithm));
-
+	drop_key_info(old_key_info);
 	/* set old key information */
-	old_key_info = entry;
+	old_key_info = create_key_info(key, algorithm);
 
 	PG_RETURN_BOOL(TRUE);
 }
@@ -700,20 +717,14 @@ enc_store_old_key_info(PG_FUNCTION_ARGS)
  * drop cipher key information from memory
  */
 PG_FUNCTION_INFO_V1(enc_drop_key_info);
-bool
+Datum
 enc_drop_key_info(void)
 {
-	if (newest_key_info != NULL) {
-		free(newest_key_info->key);
-		free(newest_key_info->algorithm);
-		free(newest_key_info);
+	if(drop_key_info(newest_key_info)){
 		newest_key_info = NULL;
-
 		PG_RETURN_BOOL(TRUE);
 	}
-	else {
-		PG_RETURN_BOOL(FALSE);
-	}
+	PG_RETURN_BOOL(FALSE);
 }
 
 
@@ -728,17 +739,11 @@ PG_FUNCTION_INFO_V1(enc_drop_old_key_info);
 Datum
 enc_drop_old_key_info(void)
 {
-	if (old_key_info != NULL) {
-		free(old_key_info->key);
-		free(old_key_info->algorithm);
-		free(old_key_info);
+	if(drop_key_info(old_key_info)){
 		old_key_info = NULL;
-
 		PG_RETURN_BOOL(TRUE);
 	}
-	else {
-		PG_RETURN_BOOL(FALSE);
-	}
+	PG_RETURN_BOOL(FALSE);
 }
 
 /*
