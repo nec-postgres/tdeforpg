@@ -8,6 +8,7 @@
 #        1.0(20110921)                                            #
 ###################################################################
 
+TDEVERSION=1.1.0
 PGVERSION=$1
 SPATH=$2
 
@@ -23,11 +24,11 @@ fi
 #build data_encryption
 make clean
 make PGSQL_SRC_PATH=${SPATH}
-mv data_encryption.so data_encryption${PGVERSION}.so
-ldd data_encryption${PGVERSION}.so
+mv data_encryption.so data_encryption${PGVERSION}.so.${TDEVERSION}
+ldd data_encryption${PGVERSION}.so.${TDEVERSION}
 
 echo
-if [ ! -f data_encryption${PGVERSION}.so ];
+if [ ! -f data_encryption${PGVERSION}.so.${TDEVERSION} ];
 then
   echo "ERROR: cannot make data_encryption.so"
   exit 1;
