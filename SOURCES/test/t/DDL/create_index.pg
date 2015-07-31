@@ -1,0 +1,45 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+
+DROP TABLE IF EXISTS tdetest_index_tbl;
+CREATE TABLE tdetest_index_tbl(txt encrypt_text, bytea encrypt_bytea);
+
+CREATE INDEX tdetest_idx_hash_txt ON tdetest_index_tbl USING hash (txt);
+CREATE INDEX tdetest_idx_hash_bytea ON tdetest_index_tbl USING hash (bytea);
+
+-- hash index for encrypt_text
+SELECT has_index('tdetest_index_tbl', 'tdetest_idx_hash_txt', 'txt');
+-- hash index for encrypt_bytea
+SELECT has_index('tdetest_index_tbl', 'tdetest_idx_hash_bytea', 'bytea');
+
+-- 42704	undefined_object
+-- cannot create btree, gist, gin index for encrypt_text
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_txt ON tdetest_index_tbl USING btree(txt)',
+'42704');
+
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_txt ON tdetest_index_tbl USING gist(txt)',
+'42704');
+
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_txt ON tdetest_index_tbl USING gin(txt)',
+'42704');
+
+-- cannot create btree, gist, gin index for encrypt_bytea
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_bytea ON tdetest_index_tbl USING btree(bytea)',
+'42704');
+
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_bytea ON tdetest_index_tbl USING gist(bytea)',
+'42704');
+
+SELECT throws_ok(
+'CREATE INDEX tdetest_idx_btree_bytea ON tdetest_index_tbl USING gin(bytea)',
+'42704');
+
+SELECT * FROM finish();
+ROLLBACK;

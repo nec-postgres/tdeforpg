@@ -1,0 +1,244 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+--
+-- INIT DATA
+--
+DROP TABLE IF EXISTS c;
+DROP TABLE IF EXISTS e;
+DROP TABLE IF EXISTS p;
+
+CREATE TABLE c(id integer,c_bool boolean,c_bpchar bpchar(10),c_char "char",c_cidr cidr,c_inet inet,c_name name,c_pg_node_tree pg_node_tree,c_text text,c_varchar varchar,c_xml xml,c_regclass regclass);
+CREATE TABLE e(id serial,cname text,t text,b bytea, et encrypt_text, eb encrypt_bytea);
+CREATE TABLE p(id serial,cname text,t text,b bytea, et         text, eb encrypt_bytea);
+
+INSERT INTO c SELECT generate_series(1,10);
+
+UPDATE c SET c_bool=true WHERE id=1;
+UPDATE c SET c_bool=false WHERE id=2;
+UPDATE c SET c_bool=NULL WHERE id=3;
+
+UPDATE c SET c_bpchar=E'\t\n ' WHERE id=1;
+UPDATE c SET c_bpchar=E'\t\n \=^+@}[*' WHERE id=2;
+UPDATE c SET c_bpchar='' WHERE id=3;
+UPDATE c SET c_bpchar=NULL WHERE id=4;
+
+UPDATE c SET c_char=E'\n' WHERE id=1;
+UPDATE c SET c_char='' WHERE id=2;
+UPDATE c SET c_char=NULL WHERE id=3;
+
+UPDATE c SET c_cidr='192.168.100.128/25' WHERE id=1;
+UPDATE c SET c_cidr='2001:4f8:3:ba:2e0:81ff:fe22:d1f1/128' WHERE id=2;
+UPDATE c SET c_cidr=NULL WHERE id=3;
+
+UPDATE c SET c_inet='192.168.100.128/25' WHERE id=1;
+UPDATE c SET c_inet='2001:4f8:3:ba:2e0:81ff:fe22:d1f1/128' WHERE id=2;
+UPDATE c SET c_inet=NULL WHERE id=3;
+
+UPDATE c SET c_name=E'\t\nTransparent Data Encryption for PostgreSQL\n\t******V1_0******\n' WHERE id=1;
+UPDATE c SET c_name='' WHERE id=2;
+UPDATE c SET c_name=NULL WHERE id=3;
+
+UPDATE c SET c_pg_node_tree=(SELECT ev_action FROM pg_rewrite WHERE rulename='pg_SETtings_u' limit 1) WHERE id=1;
+UPDATE c SET c_pg_node_tree=NULL WHERE id=2;
+
+UPDATE c SET c_text=(SELECT version()) WHERE id=1;
+UPDATE c SET c_text='' WHERE id=2;
+UPDATE c SET c_text=NULL WHERE id=3;
+
+UPDATE c SET c_varchar=(SELECT version()) WHERE id=1;
+UPDATE c SET c_varchar='' WHERE id=2;
+UPDATE c SET c_varchar=NULL WHERE id=3;
+
+-- This functionality requires the server to be built with libxml support
+UPDATE c SET c_xml=E'
+ <explain xmlns="http://www.postgresql.org/2009/explain">\n
+   <Query>                                               \n
+     <Plan>                                              \n
+       <Node-Type>Result</Node-Type>                     \n
+       <Startup-Cost>0.00</Startup-Cost>                 \n
+       <Total-Cost>0.01</Total-Cost>                     \n
+       <Plan-Rows>1</Plan-Rows>                          \n
+       <Plan-Width>0</Plan-Width>                        \n
+     </Plan>                                             \n
+   </Query>                                              \n
+ </explain>                                              \n
+' WHERE id=1;
+UPDATE c SET c_xml=NULL WHERE id=2;
+
+--
+--SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+INSERT INTO e values(9999,'regclass','cipher_key_table',E'\x3141592abcdef','cipher_key_table',E'\x3141592abcdef');
+INSERT INTO p values(9999,'regclass','cipher_key_table',E'\x3141592abcdef','cipher_key_table',E'\x3141592abcdef');
+-- test start
+
+--CAST(plain type AS encrypt_text)
+INSERT INTO e (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=3;
+INSERT INTO e (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=4;
+
+INSERT INTO e (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'pg_node_tree',c_pg_node_tree,c_pg_node_tree FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'pg_node_tree',c_pg_node_tree,c_pg_node_tree FROM c WHERE id=2;
+
+INSERT INTO e (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=2;	
+INSERT INTO e (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=2;
+INSERT INTO e (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=3;
+
+INSERT INTO e (cname,t,et) SELECT 'xml',c_xml,c_xml FROM c WHERE id=1;
+INSERT INTO e (cname,t,et) SELECT 'xml',c_xml,c_xml FROM c WHERE id=2;
+
+INSERT INTO e (cname,t,et) SELECT 'encrypt_bytea',eb,eb FROM e WHERE id=9999;
+
+-- CAST(plain type AS text)
+INSERT INTO p (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'bool',c_bool,c_bool FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=3;
+INSERT INTO p (cname,t,et) SELECT 'bpchar',c_bpchar,c_bpchar FROM c WHERE id=4;
+
+INSERT INTO p (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'char',c_char,c_char FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'cidr',c_cidr,c_cidr FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'inet',c_inet,c_inet FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'name',c_name,c_name FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'pg_node_tree',c_pg_node_tree,c_pg_node_tree FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'pg_node_tree',c_pg_node_tree,c_pg_node_tree FROM c WHERE id=2;
+
+INSERT INTO p (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=2;	
+INSERT INTO p (cname,t,et) SELECT 'text',c_text,c_text FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=2;
+INSERT INTO p (cname,t,et) SELECT 'varchar',c_varchar,c_varchar FROM c WHERE id=3;
+
+INSERT INTO p (cname,t,et) SELECT 'xml',c_xml,c_xml FROM c WHERE id=1;
+INSERT INTO p (cname,t,et) SELECT 'xml',c_xml,c_xml FROM c WHERE id=2;
+
+INSERT INTO p (cname,t,et) SELECT 'encrypt_bytea',eb,eb FROM p WHERE id=9999;
+
+--RESULT CHECK (TRUE EXCEPT NULL=NULL(=NULL))
+SELECT results_eq(
+'SELECT id,cname,t=et AS result FROM e ORDER BY id',
+'SELECT id,cname,t=et AS result FROM p ORDER BY id');
+
+
+-- CAST(encrypt_text AS plain type)
+DROP TABLE IF EXISTS c2;
+CREATE TEMP TABLE c2(id serial,cname text,c_bool boolean,c_bpchar bpchar(10),c_char "char",c_cidr cidr,c_inet inet,c_name name,c_pg_node_tree pg_node_tree,c_text text,c_varchar varchar,c_xml xml,c_regclass regclass,c2_bool boolean,c2_bpchar bpchar(10),c2_char "char",c2_cidr cidr,c2_inet inet,c2_name name,c2_pg_node_tree pg_node_tree,c2_text text,c2_varchar varchar,c2_xml xml,c2_regclass regclass);
+
+INSERT INTO c2 (cname,c_bpchar,c2_bpchar) SELECT cname,t,et FROM e WHERE cname='bpchar';
+INSERT INTO c2 (cname,c_char,c2_char) SELECT cname,t,et FROM e WHERE cname='char';
+INSERT INTO c2 (cname,c_name,c2_name) SELECT cname,t,et FROM e WHERE cname='name';
+INSERT INTO c2 (cname,c_name,c2_name) SELECT 'name',
+E'\t\nTransparent Data Encryption for PostgreSQL\n\t******V1_0******over64byte\n',
+E'\t\nTransparent Data Encryption for PostgreSQL\n\t******V1_0******over64byte\n'; -- ### special case
+INSERT INTO c2 (cname,c_regclass,c2_regclass) SELECT cname,t,et FROM e WHERE cname='regclass';
+INSERT INTO c2 (cname,c_text,c2_text) SELECT cname,t,et FROM e WHERE cname='text';
+INSERT INTO c2 (cname,c_varchar,c2_varchar) SELECT cname,t,et FROM e WHERE cname='varchar';
+SELECT throws_ok('INSERT INTO c2 (cname,c_xml,c2_xml) SELECT cname,t,et FROM e WHERE cname=''xml''');
+INSERT INTO c2 (cname,c_xml,c2_xml) SELECT cname,t::xml,et::xml FROM e WHERE cname='xml';
+
+--RESULT CHECK(TRUE)
+SELECT c_bpchar=c2_bpchar AS result FROM c2 WHERE cname='bpchar';
+SELECT c_char=c2_char AS result FROM c2 WHERE cname='char';
+SELECT c_name=c2_name AS result FROM c2 WHERE cname='name';
+SELECT c_regclass=c2_regclass AS result FROM c2 WHERE cname='regclass';
+SELECT c_text=c2_text AS result FROM c2 WHERE cname='text';
+SELECT c_varchar=c2_varchar AS result FROM c2 WHERE cname='varchar';
+SELECT c_xml::text=c2_xml::text AS result FROM c2 WHERE cname='xml';
+
+
+DROP TABLE IF EXISTS e2;
+CREATE TEMP TABLE e2(id integer,cname text,t text,b text,et encrypt_text,eb encrypt_text);
+INSERT INTO e2 SELECT * FROM e WHERE id=9999;
+
+INSERT INTO e (cname,b,eb) SELECT 'encrypt_text',b::bytea,eb::encrypt_bytea FROM e2 WHERE id=9999;
+INSERT INTO p (cname,b,eb) SELECT 'encrypt_text',b::bytea,eb::encrypt_bytea FROM e2 WHERE id=9999;
+
+--RESULT CHECK (TRUE)
+SELECT results_eq(
+'SELECT id,cname,b=eb FROM e WHERE cname=''encrypt_text''',
+'SELECT id,cname,b=eb FROM p WHERE cname=''encrypt_text''');
+
+--IMPLICIT CAST 
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_bool::encrypt_text=c_bool FROM c'        , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_bool::text=c_bool FROM c'                , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_cidr::encrypt_text=c_cidr FROM c'        , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_cidr::text=c_cidr FROM c'                , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_inet::encrypt_text=c_inet FROM c'        , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_inet::text=c_inet FROM c'                , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_regclass::encrypt_text=c_regclass FROM c', 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_regclass::text=c_regclass FROM c'        , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_xml::encrypt_text=c_xml FROM c'          , 42883);
+SELECT throws_ok('EXPLAIN VERBOSE SELECT c_xml::text=c_xml FROM c'                  , 42883);
+
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_bpchar::encrypt_text=c_bpchar FROM c');
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_char::encrypt_text=c_char FROM c');
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_name::encrypt_text=c_name FROM c');
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_pg_node_tree::encrypt_text=c_pg_node_tree FROM c');
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_text::encrypt_text=c_text FROM c');
+SELECT lives_ok('EXPLAIN VERBOSE SELECT c_varchar::encrypt_text=c_varchar FROM c');
+
+--CAST(plain type AS encrypt_bytea)
+INSERT INTO e (cname,b,eb) SELECT 'encrypt_bytea',b,b FROM e WHERE id=9999;
+INSERT INTO e (cname,b,eb) SELECT 'encrypt_bytea',NULL::bytea,NULL::bytea FROM e WHERE id=9999;
+INSERT INTO e (cname,b,eb) SELECT 'encrypt_bytea',eb,eb FROM e WHERE id=9999;
+
+INSERT INTO p (cname,b,eb) SELECT 'encrypt_bytea',b,b FROM e WHERE id=9999;
+INSERT INTO p (cname,b,eb) SELECT 'encrypt_bytea',NULL::bytea,NULL::bytea FROM e WHERE id=9999;
+INSERT INTO p (cname,b,eb) SELECT 'encrypt_bytea',eb,eb FROM e WHERE id=9999;
+
+--RESULT CHECK (TRUE)
+SELECT results_eq(
+'SELECT id,cname,b=eb FROM e WHERE cname=''encrypt_bytea''',
+'SELECT id,cname,b=eb FROM p WHERE cname=''encrypt_bytea''');
+
+EXPLAIN VERBOSE SELECT b=eb FROM e;
+
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

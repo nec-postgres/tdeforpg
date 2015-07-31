@@ -1,0 +1,66 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_txt;
+DROP TABLE IF EXISTS tdetest_enctxt;
+
+CREATE TABLE tdetest_txt(id serial PRIMARY KEY, c1 text);
+CREATE TABLE tdetest_enctxt(id serial PRIMARY KEY, c1 encrypt_text);
+
+
+INSERT INTO tdetest_txt (c1) VALUES('a fat cat sat on a mat and ate a fat rat');
+INSERT INTO tdetest_txt (c1) VALUES($$the lexeme '    ' contains spaces$$);
+INSERT INTO tdetest_txt (c1) VALUES($$the lexeme 'Joe''s' contains a quote$$);
+INSERT INTO tdetest_txt (c1) VALUES('a:1 fat:2 cat:3 sat:4 on:5 a:6 mat:7 and:8 ate:9 a:10 fat:11 rat:12');
+INSERT INTO tdetest_txt (c1) VALUES('a:1A fat:2B,4C cat:5D');
+INSERT INTO tdetest_txt (c1) VALUES('The Fat Rats');
+
+INSERT INTO tdetest_txt (c1) SELECT (random()*10000)::text FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1) SELECT md5(clock_timestamp()::text) FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1) SELECT string_agg(str, '') FROM  (SELECT chr(12353 + (random() * 1000)::int % 83 ) as str , i FROM  generate_series(1,15) length, generate_series(1,10) num(i)) t  GROUP BY i;
+INSERT INTO tdetest_txt (c1) VALUES('test encrypt type');
+INSERT INTO tdetest_txt (c1) VALUES('TEST ENCRYPT TYPE');
+INSERT INTO tdetest_txt (c1) VALUES('');
+INSERT INTO tdetest_txt (c1) VALUES('new
+line');
+INSERT INTO tdetest_txt (c1) VALUES('マルチバイト');
+INSERT INTO tdetest_txt (c1) VALUES('	');
+INSERT INTO tdetest_txt (c1) VALUES(' ');
+INSERT INTO tdetest_txt (c1) VALUES('!"#$%&''()');
+INSERT INTO tdetest_txt (c1) VALUES('3trim3333');
+INSERT INTO tdetest_txt (c1) VALUES(NULL);
+
+INSERT INTO tdetest_enctxt SELECT * FROM tdetest_txt;
+
+
+SELECT results_eq('SELECT c1::tsvector FROM    tdetest_txt',
+                  'SELECT c1::tsvector FROM tdetest_enctxt');
+SELECT results_eq('SELECT to_tsvector(''english'', c1) FROM    tdetest_txt',
+                  'SELECT to_tsvector(''english'', c1) FROM tdetest_enctxt');
+
+SELECT results_eq('SELECT             ''fat & rat''::tsquery',
+                  'SELECT encrypt_text''fat & rat''::tsquery');
+SELECT results_eq('SELECT             ''fat & (rat | cat)''::tsquery',
+                  'SELECT encrypt_text''fat & (rat | cat)''::tsquery');
+SELECT results_eq('SELECT             ''fat & rat & ! cat''::tsquery',
+                  'SELECT encrypt_text''fat & rat & ! cat''::tsquery');
+SELECT results_eq('SELECT             ''fat:ab & cat''::tsquery',
+                  'SELECT encrypt_text''fat:ab & cat''::tsquery');
+SELECT results_eq('SELECT             ''super:*''::tsquery',
+                  'SELECT encrypt_text''super:*''::tsquery');
+SELECT results_eq('SELECT to_tsvector(            ''postgraduate'') @@ to_tsquery( ''postgres:*'' )',
+                  'SELECT to_tsvector(encrypt_text''postgraduate'') @@ to_tsquery( ''postgres:*'' )');
+SELECT results_eq('SELECT to_tsquery (            ''postgres:*'')',
+                  'SELECT to_tsquery (encrypt_text''postgres:*'')');
+SELECT results_eq('SELECT to_tsquery (            ''Fat:ab & Cats'')',
+                  'SELECT to_tsquery (encrypt_text''Fat:ab & Cats'')');
+
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

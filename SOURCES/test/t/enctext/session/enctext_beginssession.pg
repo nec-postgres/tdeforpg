@@ -1,0 +1,48 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+
+SELECT pgtde_end_session();
+
+DROP TABLE IF EXISTS tdetest_txt;
+DROP TABLE IF EXISTS tdetest_enctxt;
+
+CREATE TABLE tdetest_txt(id serial PRIMARY KEY, c1 text);
+CREATE TABLE tdetest_enctxt(id serial PRIMARY KEY, c1 encrypt_text);
+
+INSERT INTO tdetest_txt(c1) values('test encryption type');
+
+
+SELECT throws_like('INSERT INTO tdetest_enctxt(c1) SELECT c1 FROM tdetest_txt','TDE-E0016%');
+
+SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
+                  'SELECT true');
+                  
+SELECT lives_ok('INSERT INTO tdetest_enctxt(c1) SELECT c1 FROM tdetest_txt');
+SELECT lives_ok('SELECT c1 FROM tdetest_enctxt');
+
+SELECT results_eq('SELECT pgtde_end_session()', 
+                  'SELECT true');
+
+SELECT pgtde_end_session();
+
+SELECT throws_like('SELECT c1 FROM tdetest_enctxt WHERE c1=text''test encryption type''','TDE-E0017%');
+
+SET encrypt.enable TO off;
+
+SELECT lives_ok('INSERT INTO tdetest_enctxt(c1) SELECT c1 FROM tdetest_enctxt');
+SELECT lives_ok('SELECT c1 FROM tdetest_enctxt');
+
+SET encrypt.enable TO on;
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+
+SELECT results_eq('SELECT a.c1=b.c1 FROM tdetest_txt a, tdetest_enctxt b', 
+                  ARRAY[true, true]);
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

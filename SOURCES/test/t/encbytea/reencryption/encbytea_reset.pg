@@ -1,0 +1,44 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_encbin;
+DROP TABLE IF EXISTS tdetest_bin;
+
+CREATE TABLE tdetest_encbin(id serial PRIMARY KEY, c1 encrypt_bytea, ver int);
+CREATE TABLE tdetest_bin   (id serial PRIMARY KEY, c1 bytea,   ver int);
+
+INSERT INTO tdetest_bin (c1, ver) SELECT md5(clock_timestamp()::text)::bytea, 1 FROM generate_series(1,10);
+INSERT INTO tdetest_bin (c1, ver) VALUES(NULL, 1);
+
+INSERT INTO tdetest_encbin(c1, ver) SELECT c1, ver FROM tdetest_bin;
+
+-- regist new cipher key
+SELECT pgtde_end_session();
+SELECT cipher_key_regist('__replace__appropriate_encryption_key__','test2','aes');
+SELECT pgtde_begin_session('test2');
+
+INSERT INTO tdetest_bin (c1, ver) SELECT c1,2 FROM tdetest_bin ORDER BY id;
+
+INSERT INTO tdetest_encbin (c1, ver) SELECT c1,2 FROM tdetest_bin WHERE ver=2 ORDER BY id;
+
+-- eq
+SELECT results_eq('SELECT a.c1 = b.c1 FROM    tdetest_bin a,    tdetest_bin b ORDER BY a.id',
+                  'SELECT a.c1 = b.c1 FROM tdetest_encbin a, tdetest_encbin b ORDER BY a.id');
+SELECT results_eq('SELECT a.c1 = b.c1 FROM    tdetest_bin a,    tdetest_bin b ORDER BY a.id',
+                  'SELECT a.c1 = b.c1 FROM tdetest_encbin a, tdetest_bin b ORDER BY a.id');
+
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;
+
+
+
+
+
+

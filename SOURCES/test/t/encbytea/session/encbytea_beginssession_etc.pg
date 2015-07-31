@@ -1,0 +1,37 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+
+
+DEALLOCATE PREPARE ALL;
+DROP TABLE IF EXISTS tdetest_encbin;
+CREATE TABLE tdetest_encbin(id serial PRIMARY KEY, c1 encrypt_bytea);
+
+SELECT lives_ok('PREPARE tdetest_encbin_insert(bytea)       AS INSERT    INTO tdetest_encbin (c1) values($1)');
+SELECT lives_ok('PREPARE tdetest_encbin_select(bytea)       AS SELECT c1 FROM tdetest_encbin WHERE c1=$1');
+SELECT lives_ok('PREPARE tdetest_encbin_update(bytea, bytea) AS UPDATE         tdetest_encbin SET   c1=$1 WHERE c1=$2');
+SELECT lives_ok('PREPARE tdetest_encbin_delete(bytea)       AS DELETE    FROM tdetest_encbin WHERE c1=$1');
+
+
+SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
+                  'SELECT true');
+                  
+SELECT performs_ok('EXECUTE tdetest_encbin_insert(''test prepare'')'    , 250);
+SELECT results_eq ('EXECUTE tdetest_encbin_select(''test prepare'')' , $$VALUES (encrypt_bytea'test prepare')$$);
+SELECT performs_ok('EXECUTE tdetest_encbin_update(''test prepare'',''test prepare update'')', 250);
+SELECT performs_ok('EXECUTE tdetest_encbin_delete(''test prepare update'')'            , 250);
+EXECUTE tdetest_encbin_insert('test prepare update');
+
+SELECT results_eq('SELECT pgtde_end_session()', 
+                  'SELECT true');
+                         
+                  
+SELECT throws_like('EXECUTE tdetest_encbin_insert(''test prepare'')'    , 'TDE-E0016%');
+SELECT throws_like('EXECUTE tdetest_encbin_select(''test prepare'')'    , 'TDE-E0017%');
+SELECT throws_like('EXECUTE tdetest_encbin_update(''test prepare'',''test prepare update'')', 'TDE-E0017%');
+SELECT throws_like('EXECUTE tdetest_encbin_delete(''test prepare update'')'                 , 'TDE-E0017%');
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

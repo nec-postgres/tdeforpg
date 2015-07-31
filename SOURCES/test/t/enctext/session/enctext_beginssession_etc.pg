@@ -1,0 +1,37 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+
+
+DEALLOCATE PREPARE ALL;
+DROP TABLE IF EXISTS tdetest_enctxt;
+CREATE TABLE tdetest_enctxt(id serial PRIMARY KEY, c1 encrypt_text);
+
+SELECT lives_ok('PREPARE tdetest_enctxt_insert(text)       AS INSERT    INTO tdetest_enctxt (c1) values($1)');
+SELECT lives_ok('PREPARE tdetest_enctxt_select(text)       AS SELECT c1 FROM tdetest_enctxt WHERE c1=$1');
+SELECT lives_ok('PREPARE tdetest_enctxt_update(text, text) AS UPDATE         tdetest_enctxt SET   c1=$1 WHERE c1=$2');
+SELECT lives_ok('PREPARE tdetest_enctxt_delete(text)       AS DELETE    FROM tdetest_enctxt WHERE c1=$1');
+
+
+SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
+                  'SELECT true');
+                  
+SELECT performs_ok('EXECUTE tdetest_enctxt_insert(''test prepare'')'    , 250);
+SELECT results_eq ('EXECUTE tdetest_enctxt_select(''test prepare'')' , $$VALUES (encrypt_text'test prepare')$$);
+SELECT performs_ok('EXECUTE tdetest_enctxt_update(''test prepare'',''test prepare update'')', 250);
+SELECT performs_ok('EXECUTE tdetest_enctxt_delete(''test prepare update'')'            , 250);
+EXECUTE tdetest_enctxt_insert('test prepare update');
+
+SELECT results_eq('SELECT pgtde_end_session()', 
+                  'SELECT true');
+                         
+                  
+SELECT throws_like('EXECUTE tdetest_enctxt_insert(''test prepare'')'    , 'TDE-E0016%');
+SELECT throws_like('EXECUTE tdetest_enctxt_select(''test prepare'')'    , 'TDE-E0017%');
+SELECT throws_like('EXECUTE tdetest_enctxt_update(''test prepare'',''test prepare update'')', 'TDE-E0017%');
+SELECT throws_like('EXECUTE tdetest_enctxt_delete(''test prepare update'')'                 , 'TDE-E0017%');
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

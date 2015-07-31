@@ -1,0 +1,71 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+select pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_enctxt_col;
+CREATE TABLE tdetest_enctxt_col (
+	c1 encrypt_text,
+	set_type text,
+	dropcol encrypt_text
+);
+
+-- rename
+ALTER TABLE tdetest_enctxt_col RENAME COLUMN c1 TO newc1;
+SELECT has_column('tdetest_enctxt_col', 'newc1');
+
+-- add column
+ALTER TABLE tdetest_enctxt_col ADD COLUMN addtxt encrypt_text;
+SELECT has_column('tdetest_enctxt_col'::name, 'addtxt'::name);
+
+-- drop column
+ALTER TABLE tdetest_enctxt_col DROP COLUMN dropcol RESTRICT;
+SELECT hasnt_column('tdetest_enctxt_col'::name, 'dropcol'::name);
+
+insert into tdetest_enctxt_col (set_type) values(text'plain text -> encrypt text');
+-- alter column set data type
+ALTER TABLE tdetest_enctxt_col ALTER COLUMN set_type SET DATA TYPE encrypt_text;
+SELECT col_type_is('tdetest_enctxt_col'::name, 'set_type'::name, 'encrypt_text');
+
+SELECT results_eq(
+'SELECT set_type FROM tdetest_enctxt_col',
+ARRAY[encrypt_text'plain text -> encrypt text']
+);
+
+
+DROP TABLE IF EXISTS tdetest_encbytea_col;
+CREATE TABLE tdetest_encbytea_col (
+	c1 encrypt_bytea,
+	set_type bytea,
+	dropcol encrypt_bytea
+);
+
+-- rename
+ALTER TABLE tdetest_encbytea_col RENAME COLUMN c1 TO newc1;
+SELECT has_column('tdetest_encbytea_col'::name, 'newc1'::name);
+
+-- add column
+ALTER TABLE tdetest_encbytea_col ADD COLUMN addbin encrypt_bytea;
+SELECT has_column('tdetest_encbytea_col'::name, 'addbin'::name);
+
+-- drop column
+ALTER TABLE tdetest_encbytea_col DROP COLUMN dropcol RESTRICT;
+SELECT hasnt_column('tdetest_encbytea_col'::name, 'dropcol'::name);
+
+insert into tdetest_encbytea_col (set_type) values(bytea'plain bytea -> encrypt bytea');
+-- alter column set data type
+ALTER TABLE tdetest_encbytea_col ALTER COLUMN set_type SET DATA TYPE encrypt_bytea;
+SELECT col_type_is('tdetest_encbytea_col'::name, 'set_type'::name, 'encrypt_bytea');
+
+SELECT results_eq(
+'SELECT set_type FROM tdetest_encbytea_col',
+ARRAY[encrypt_bytea'plain bytea -> encrypt bytea']
+);
+
+
+select pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

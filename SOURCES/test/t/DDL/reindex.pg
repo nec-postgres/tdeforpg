@@ -1,0 +1,46 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+
+DROP TABLE IF EXISTS tdetest_index_tbl;
+CREATE TABLE tdetest_index_txt(txt encrypt_text);
+CREATE TABLE tdetest_index_bytea (bytea encrypt_bytea);
+
+CREATE INDEX tdetest_idx_hash_txt ON tdetest_index_txt USING hash (txt);
+CREATE INDEX tdetest_idx_hash_bytea  ON tdetest_index_bytea  USING hash (bytea);
+
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+INSERT INTO tdetest_index_txt SELECT (random()*10000)::text FROM generate_series(1,100);
+INSERT INTO tdetest_index_txt VALUES('test encrypt type');
+INSERT INTO tdetest_index_txt VALUES('');
+INSERT INTO tdetest_index_txt VALUES('new
+line');
+INSERT INTO tdetest_index_txt VALUES('マルチバイト');
+INSERT INTO tdetest_index_txt VALUES('	');
+INSERT INTO tdetest_index_txt VALUES(' ');
+INSERT INTO tdetest_index_txt VALUES('!"#$%&''()');
+INSERT INTO tdetest_index_txt VALUES(NULL);
+
+
+INSERT INTO tdetest_index_bytea SELECT (random()*10000)::text::bytea FROM generate_series(1,100);
+INSERT INTO tdetest_index_bytea VALUES('');
+INSERT INTO tdetest_index_bytea VALUES('test encrypt type');
+INSERT INTO tdetest_index_bytea VALUES('new
+line');
+INSERT INTO tdetest_index_bytea VALUES('マルチバイト');
+INSERT INTO tdetest_index_bytea VALUES('	');
+INSERT INTO tdetest_index_bytea VALUES(' ');
+INSERT INTO tdetest_index_bytea VALUES('!"#$%&''()');
+INSERT INTO tdetest_index_bytea VALUES(NULL);
+
+SELECT lives_ok('REINDEX INDEX tdetest_idx_hash_txt');
+SELECT lives_ok('REINDEX INDEX tdetest_idx_hash_bytea');
+
+SELECT lives_ok('REINDEX TABLE tdetest_index_txt');
+SELECT lives_ok('REINDEX TABLE tdetest_index_bytea');
+SELECT pgtde_end_session();
+
+SELECT * FROM finish();
+ROLLBACK;

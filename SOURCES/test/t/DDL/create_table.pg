@@ -1,0 +1,25 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+DROP TABLE IF EXISTS tdetest_enctxt_col;
+CREATE TABLE tdetest_enctxt_col (
+	c1 encrypt_text,
+	c2 text
+);
+
+
+
+DROP TABLE IF EXISTS tdetest_encbytea_col;
+CREATE TABLE tdetest_encbytea_col (
+	c1 encrypt_bytea,
+	c2 bytea
+);
+
+SELECT has_table('tdetest_enctxt_col'::name);
+SELECT has_table('tdetest_encbytea_col'::name);
+
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

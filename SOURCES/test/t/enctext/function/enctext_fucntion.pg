@@ -1,0 +1,95 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_txt;
+DROP TABLE IF EXISTS tdetest_enctxt;
+
+CREATE TABLE tdetest_txt(id serial PRIMARY KEY, c1 text);
+CREATE TABLE tdetest_enctxt(id serial PRIMARY KEY, c1 encrypt_text);
+
+INSERT INTO tdetest_txt (c1) SELECT (random()*10000)::text FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1) SELECT md5(clock_timestamp()::text) FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1) SELECT string_agg(str, '') FROM  (SELECT chr(12353 + (random() * 1000)::int % 83 ) as str , i FROM  generate_series(1,15) length, generate_series(1,10) num(i)) t  GROUP BY i;
+INSERT INTO tdetest_txt (c1) VALUES('test encrypt type');
+INSERT INTO tdetest_txt (c1) VALUES('TEST ENCRYPT TYPE');
+INSERT INTO tdetest_txt (c1) VALUES('');
+INSERT INTO tdetest_txt (c1) VALUES('new
+line');
+INSERT INTO tdetest_txt (c1) VALUES('マルチバイト');
+INSERT INTO tdetest_txt (c1) VALUES('	');
+INSERT INTO tdetest_txt (c1) VALUES(' ');
+INSERT INTO tdetest_txt (c1) VALUES('!"#$%&''()');
+INSERT INTO tdetest_txt (c1) VALUES('3trim3333');
+INSERT INTO tdetest_txt (c1) VALUES(NULL);
+
+INSERT INTO tdetest_enctxt SELECT * FROM tdetest_txt;
+
+
+-- string || string 
+SELECT results_eq('SELECT a.c1 || b.c1 FROM    tdetest_txt a,    tdetest_txt b',
+                  'SELECT a.c1 || b.c1 FROM tdetest_enctxt a, tdetest_enctxt b');
+SELECT results_eq('SELECT a.c1 || b.c1 FROM    tdetest_txt a,    tdetest_txt b',
+                  'SELECT a.c1 || b.c1 FROM    tdetest_txt a, tdetest_enctxt b');
+
+-- string || non-string or non-string || string 
+SELECT results_eq('SELECT c1 || 42 FROM    tdetest_txt',
+                  'SELECT c1 || 42 FROM tdetest_enctxt');
+
+-- bit_length(string) 
+SELECT results_eq('SELECT bit_length(c1) FROM    tdetest_txt',
+                  'SELECT bit_length(c1) FROM tdetest_enctxt');
+
+-- char_length(string) or character_length(string) 
+SELECT results_eq('SELECT char_length(c1) FROM    tdetest_txt',
+                  'SELECT char_length(c1) FROM tdetest_enctxt');
+
+-- lower(string) 
+SELECT results_eq('SELECT lower(c1) FROM    tdetest_txt',
+                  'SELECT lower(c1) FROM tdetest_enctxt');
+
+-- octet_length(string) 
+SELECT results_eq('SELECT octet_length(c1) FROM    tdetest_txt',
+                  'SELECT octet_length(c1) FROM tdetest_enctxt');
+
+-- overlay(string placing string from int [for int]) 
+SELECT results_eq('SELECT overlay(c1 placing ''abc!!あいう'' from 3 for 5) FROM    tdetest_txt',
+                  'SELECT overlay(c1 placing ''abc!!あいう'' from 3 for 5) FROM tdetest_enctxt');
+
+-- position(substring in string) 
+SELECT results_eq('SELECT position(''.'' in c1) FROM    tdetest_txt',
+                  'SELECT position(''.'' in c1) FROM tdetest_enctxt');
+
+-- substring(string [from int] [for int]) 
+SELECT results_eq('SELECT substring(c1 from 2 for 5) FROM    tdetest_txt',
+                  'SELECT substring(c1 from 2 for 5) FROM tdetest_enctxt');
+
+-- substring(string from pattern) 
+SELECT results_eq('SELECT substring(c1 from ''...$'') FROM    tdetest_txt',
+                  'SELECT substring(c1 from ''...$'') FROM tdetest_enctxt');
+
+-- substring(string from pattern for escape) 
+SELECT results_eq('SELECT substring(c1 from ''%_%%'' for ''_'') FROM    tdetest_txt',
+                  'SELECT substring(c1 from ''%_%%'' for ''_'') FROM tdetest_enctxt');
+
+-- trim([leading | trailing | both] [characters] from string) 
+
+SELECT results_eq('SELECT trim(both ''3'' from c1) FROM    tdetest_txt',
+                  'SELECT trim(both ''3'' from c1) FROM tdetest_enctxt');
+
+SELECT results_eq('SELECT trim(leading ''3'' from c1) FROM    tdetest_txt',
+                  'SELECT trim(leading ''3'' from c1) FROM tdetest_enctxt');
+
+SELECT results_eq('SELECT trim(trailing ''3'' from c1) FROM    tdetest_txt',
+                  'SELECT trim(trailing ''3'' from c1) FROM tdetest_enctxt');
+-- upper(string) 
+SELECT results_eq('SELECT upper(c1) FROM    tdetest_txt',
+                  'SELECT upper(c1) FROM tdetest_enctxt');
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

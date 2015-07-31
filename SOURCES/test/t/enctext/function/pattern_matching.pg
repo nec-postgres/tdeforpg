@@ -1,0 +1,67 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+
+SELECT results_eq('SELECT             ''abc'' LIKE ''abc''',
+                  'SELECT encrypt_text''abc'' LIKE ''abc''');
+SELECT results_eq('SELECT             ''abc'' LIKE ''a%'' ',
+                  'SELECT encrypt_text''abc'' LIKE ''a%'' ');
+SELECT results_eq('SELECT             ''abc'' LIKE ''_b_''',
+                  'SELECT encrypt_text''abc'' LIKE ''_b_''');
+SELECT results_eq('SELECT             ''abc'' LIKE ''c''',
+                  'SELECT encrypt_text''abc'' LIKE ''c''');
+SELECT results_eq('SELECT             ''abc'' SIMILAR TO ''abc''',
+                  'SELECT encrypt_text''abc'' SIMILAR TO ''abc''');
+SELECT results_eq('SELECT             ''abc'' SIMILAR TO ''a''',
+                  'SELECT encrypt_text''abc'' SIMILAR TO ''a''');
+SELECT results_eq('SELECT             ''abc'' SIMILAR TO ''%(b|d)%''',
+                  'SELECT encrypt_text''abc'' SIMILAR TO ''%(b|d)%''');
+SELECT results_eq('SELECT             ''abc'' SIMILAR TO ''(b|c)%''',
+                  'SELECT encrypt_text''abc'' SIMILAR TO ''(b|c)%''');
+SELECT results_eq('SELECT substring(            ''foobar'' from ''%#"o_b#"%'' for ''#'')',
+                  'SELECT substring(encrypt_text''foobar'' from ''%#"o_b#"%'' for ''#'')');
+SELECT results_eq('SELECT substring(            ''foobar'' from ''#"o_b#"%'' for ''#'')',
+                  'SELECT substring(encrypt_text''foobar'' from ''#"o_b#"%'' for ''#'')');
+SELECT results_eq('SELECT             ''abc'' ~ ''abc''',
+                  'SELECT encrypt_text''abc'' ~ ''abc''');
+SELECT results_eq('SELECT             ''abc'' ~ ''^a''',
+                  'SELECT encrypt_text''abc'' ~ ''^a''');
+SELECT results_eq('SELECT             ''abc'' ~ ''(b|d)''',
+                  'SELECT encrypt_text''abc'' ~ ''(b|d)''');
+SELECT results_eq('SELECT             ''abc'' ~ ''^(b|c)''',
+                  'SELECT encrypt_text''abc'' ~ ''^(b|c)''');
+SELECT results_eq('SELECT substring(            ''foobar'' from ''o.b'')',
+                  'SELECT substring(encrypt_text''foobar'' from ''o.b'')');
+SELECT results_eq('SELECT substring(            ''foobar'' from ''o(.)b'')',
+                  'SELECT substring(encrypt_text''foobar'' from ''o(.)b'')');
+SELECT results_eq('SELECT regexp_replace(            ''foobarbaz'', ''b..'', ''X'')',
+                  'SELECT regexp_replace(encrypt_text''foobarbaz'', ''b..'', ''X'')');
+SELECT results_eq('SELECT regexp_replace(            ''foobarbaz'', ''b..'', ''X'', ''g'')',
+                  'SELECT regexp_replace(encrypt_text''foobarbaz'', ''b..'', ''X'', ''g'')');
+SELECT results_eq('SELECT regexp_replace(            ''foobarbaz'', ''b(..)'', E''X\\1Y'', ''g'')',
+                  'SELECT regexp_replace(encrypt_text''foobarbaz'', ''b(..)'', E''X\\1Y'', ''g'')');
+SELECT results_eq('SELECT regexp_matches(            ''foobarbequebaz'', ''(bar)(beque)'')',
+                  'SELECT regexp_matches(encrypt_text''foobarbequebaz'', ''(bar)(beque)'')');
+SELECT results_eq('SELECT regexp_matches(            ''foobarbequebazilbarfbonk'', ''(b[^b]+)(b[^b]+)'', ''g'')',
+                  'SELECT regexp_matches(encrypt_text''foobarbequebazilbarfbonk'', ''(b[^b]+)(b[^b]+)'', ''g'')');
+SELECT results_eq('SELECT regexp_matches(            ''foobarbequebaz'', ''barbeque'')',
+                  'SELECT regexp_matches(encrypt_text''foobarbequebaz'', ''barbeque'')');
+SELECT results_eq('SELECT foo FROM regexp_split_to_table(            ''the quick brown fox jumps over the lazy dog'', E''\\s+'') AS foo',
+                  'SELECT foo FROM regexp_split_to_table(encrypt_text''the quick brown fox jumps over the lazy dog'', E''\\s+'') AS foo');
+SELECT results_eq('SELECT regexp_split_to_array(            ''the quick brown fox jumps over the lazy dog'', E''\\s+'')',
+                  'SELECT regexp_split_to_array(encrypt_text''the quick brown fox jumps over the lazy dog'', E''\\s+'')');
+SELECT results_eq('SELECT foo FROM regexp_split_to_table(            ''the quick brown fox'', E''\\s*'') AS foo',
+                  'SELECT foo FROM regexp_split_to_table(encrypt_text''the quick brown fox'', E''\\s*'') AS foo');
+SELECT results_eq('SELECT SUBSTRING(            ''XY1234Z'', ''Y*([0-9]{1,3})'')',
+                  'SELECT SUBSTRING(encrypt_text''XY1234Z'', ''Y*([0-9]{1,3})'')');
+SELECT results_eq('SELECT SUBSTRING(            ''XY1234Z'', ''Y*?([0-9]{1,3})'')',
+                  'SELECT SUBSTRING(encrypt_text''XY1234Z'', ''Y*?([0-9]{1,3})'')');
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

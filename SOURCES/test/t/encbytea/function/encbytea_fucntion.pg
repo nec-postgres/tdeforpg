@@ -1,0 +1,100 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_bin;
+DROP TABLE IF EXISTS tdetest_encbin;
+
+CREATE TABLE tdetest_bin(id serial PRIMARY KEY, c1 bytea);
+CREATE TABLE tdetest_encbin(id serial PRIMARY KEY, c1 encrypt_bytea);
+
+INSERT INTO tdetest_bin (c1) SELECT md5(clock_timestamp()::text)::bytea FROM generate_series(1,50);
+INSERT INTO tdetest_bin (c1) VALUES(E'\\\\Post');
+INSERT INTO tdetest_bin (c1) VALUES(E'\\047gres\\000');
+INSERT INTO tdetest_bin (c1) VALUES(E'jo\\000se');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'\\000om');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'\\000Tom\\000');
+INSERT INTO tdetest_bin (c1) VALUES(E'\\000trim\\000');
+INSERT INTO tdetest_bin (c1) VALUES(E'123\\000456');
+INSERT INTO tdetest_bin (c1) VALUES(E'123\\000456');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'jo\\000se');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES(E'Th\\000omas');
+INSERT INTO tdetest_bin (c1) VALUES('3trim3333');
+-- INSERT INTO tdetest_bin (c1) VALUES(NULL);
+
+INSERT INTO tdetest_encbin SELECT * FROM tdetest_bin;
+
+
+-- string || string 
+SELECT results_eq('SELECT a.c1 || b.c1 FROM    tdetest_bin a,    tdetest_bin b',
+                  'SELECT a.c1 || b.c1 FROM tdetest_encbin a, tdetest_encbin b');
+SELECT results_eq('SELECT a.c1 || b.c1 FROM    tdetest_bin a,    tdetest_bin b',
+                  'SELECT a.c1 || b.c1 FROM    tdetest_bin a, tdetest_encbin b');
+
+-- octet_length(string) 
+SELECT results_eq('SELECT octet_length(c1) FROM    tdetest_bin',
+                  'SELECT octet_length(c1) FROM tdetest_encbin');
+
+-- overlay(string placing string from int [for int]) 
+SELECT results_eq('SELECT overlay(c1 placing E''\\002\\003'' from 2 for 5) FROM    tdetest_bin',
+                  'SELECT overlay(c1 placing E''\\002\\003'' from 2 for 5) FROM tdetest_encbin');
+
+-- position(substring in string) 
+SELECT results_eq('SELECT position(E''\\000om''::bytea in c1) FROM    tdetest_bin',
+                  'SELECT position(E''\\000om''::bytea in c1) FROM tdetest_encbin');
+
+-- substring(string [from int] [for int]) 
+SELECT results_eq('SELECT substring(c1 from 2 for 3) FROM    tdetest_bin',
+                  'SELECT substring(c1 from 2 for 3) FROM tdetest_encbin');
+
+-- trim([both] [characters] from string) 
+
+SELECT results_eq('SELECT trim(E''\\000''::bytea from c1) FROM    tdetest_bin',
+                  'SELECT trim(E''\\000''::bytea from c1) FROM tdetest_encbin');
+
+
+-- btrim(string bytea, bytes bytea) 
+SELECT results_eq('SELECT btrim(c1, E''\\000''::bytea) FROM tdetest_bin',
+                  'SELECT btrim(c1, E''\\000''::bytea) FROM tdetest_bin');
+
+-- encode(data bytea, format text) 
+SELECT results_eq('SELECT encode(c1, ''escape'')       FROM tdetest_bin',
+                  'SELECT encode(c1, ''escape'')       FROM tdetest_bin');
+
+-- get_bit(string, offset) 
+SELECT results_eq('SELECT get_bit(c1, 1)              FROM tdetest_bin',
+                  'SELECT get_bit(c1, 1)              FROM tdetest_bin');
+
+-- get_byte(string, offset)
+SELECT results_eq('SELECT get_byte(c1, 2)              FROM tdetest_bin',
+                  'SELECT get_byte(c1, 2)              FROM tdetest_bin');
+
+-- length(string) 
+SELECT results_eq('SELECT length(c1)                   FROM tdetest_bin',
+                  'SELECT length(c1)                   FROM tdetest_bin');
+
+-- md5(string) 
+SELECT results_eq('SELECT md5(c1)                      FROM tdetest_bin',
+                  'SELECT md5(c1)                      FROM tdetest_bin');
+
+-- set_bit(string, offset, newvalue) 
+SELECT results_eq('SELECT set_bit(c1, 2, 0)           FROM tdetest_bin',
+                  'SELECT set_bit(c1, 2, 0)           FROM tdetest_bin');
+
+-- set_byte(string, offset, newvalue)
+SELECT results_eq('SELECT set_byte(c1, 1, 64)          FROM tdetest_bin',
+                  'SELECT set_byte(c1, 1, 64)          FROM tdetest_bin');
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;

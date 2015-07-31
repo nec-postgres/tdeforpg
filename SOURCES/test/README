@@ -1,0 +1,15 @@
+Precaution
+==========
+DO NOT RUN TESTS IN PRODUCTION SYSTEM OR OTHER SYSTEM WHERE RIST OF LOSS OF DATA IS NOT ACCEPTABLE.
+
+Requirements
+============
+1. pgTAP    (http://pgxn.org/dist/pgtap/)
+2. pg_prove (http://search.cpan.org/~dwheeler/TAP-Parser-SourceHandler-pgTAP/bin/pg_prove)
+
+How to run
+=========
+1. Replace the password("__replace__appropriate_encryption_key__")
+   which is written in the testcase as appropriate password before running the test.
+2. Simply run a below command
+   $ pg_prove -r -U <username> -d <dbname> 

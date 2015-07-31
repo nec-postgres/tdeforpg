@@ -1,0 +1,54 @@
+BEGIN;
+SELECT * FROM no_plan();
+
+-- start test
+SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+
+DROP TABLE IF EXISTS tdetest_enctxt;
+DROP TABLE IF EXISTS tdetest_txt;
+
+CREATE TABLE tdetest_enctxt(id serial PRIMARY KEY, c1 encrypt_text, ver int);
+CREATE TABLE tdetest_txt   (id serial PRIMARY KEY, c1 text,   ver int);
+
+INSERT INTO tdetest_txt (c1, ver) SELECT (random()*10000)::text, 1 FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1, ver) SELECT md5(clock_timestamp()::text), 1 FROM generate_series(1,10);
+INSERT INTO tdetest_txt (c1, ver) SELECT string_agg(str, ''), 1 FROM  (SELECT chr(12353 + (random() * 1000)::int % 83 ) as str , i FROM  generate_series(1,15) length, generate_series(1,10) txt(i)) t  GROUP BY i;
+INSERT INTO tdetest_txt (c1, ver) VALUES('test encrypt type', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES('', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES('new
+line', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES('マルチバイト', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES('	', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES(' ', 1);
+INSERT INTO tdetest_txt (c1, ver) VALUES('!"#$%&''()',1);
+INSERT INTO tdetest_txt (c1, ver) VALUES(NULL, 1);
+
+INSERT INTO tdetest_enctxt(c1, ver) SELECT c1, ver FROM tdetest_txt;
+
+-- regist new cipher key
+SELECT pgtde_end_session();
+SELECT cipher_key_regist('__replace__appropriate_encryption_key__','test2','aes');
+SELECT pgtde_begin_session('test2');
+
+INSERT INTO tdetest_txt (c1, ver) SELECT c1,2 FROM tdetest_txt ORDER BY id;
+
+INSERT INTO tdetest_enctxt (c1, ver) SELECT c1,2 FROM tdetest_txt WHERE ver=2 ORDER BY id;
+
+-- eq
+SELECT results_eq('SELECT a.c1 = b.c1 FROM    tdetest_txt a,    tdetest_txt b ORDER BY a.id',
+                  'SELECT a.c1 = b.c1 FROM tdetest_enctxt a, tdetest_enctxt b ORDER BY a.id');
+SELECT results_eq('SELECT a.c1 = b.c1 FROM    tdetest_txt a,    tdetest_txt b ORDER BY a.id',
+                  'SELECT a.c1 = b.c1 FROM tdetest_enctxt a, tdetest_txt b ORDER BY a.id');
+
+
+SELECT pgtde_end_session();
+
+-- clean
+SELECT * FROM finish();
+ROLLBACK;
+
+
+
+
+
+
