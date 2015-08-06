@@ -59,7 +59,8 @@ BEGIN
 	END IF;
 	RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path TO public;
 
 
 /*------------------------------------------------------------*
@@ -80,4 +81,5 @@ BEGIN
 		RETURN FALSE;
 	END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path TO public;
