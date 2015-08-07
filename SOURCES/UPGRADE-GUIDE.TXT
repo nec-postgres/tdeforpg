@@ -1,0 +1,63 @@
+Upgrade guides
+==============
+Upgrade insturctions for Transparent Data Encryption for PostgreSQL Free Edition
+
+
+Overview
+=========
+To upgrade from incompatible old version it is needed to migrate data using pg_dump/pg_restore.
+
+* To prevent data loss we highly recommend that you make a backup of $PGDATA directory
+  before starting following upgrade procedure.
+
+
+How to Upgrade from old version
+===============================
+1. Setting environment variables
+    $ export PGHOME = #path of PostgreSQL installed
+    $ export TDEHOME = #path of pgTDE downloaded
+
+2. Dump existing database using pg_dump
+    $ PGOPTIONS="-c encrypt.enable=off" pg_dump -f <dump_file> -Fc <database>
+    
+3. Make a restore list from dumpfile
+    $ pg_restore -l <> > <dumplist_file>
+    $ psql -F ' ' -d <database>  << EOF | grep -E [0-9]+ > <tdeoperator_list_file>
+      \t
+      \a
+      SELECT a.oid, 'OPERATOR', nspname , oprname, rolname
+      FROM   pg_operator a JOIN pg_authid b    ON a.oprowner=b.oid
+                           JOIN pg_namespace c ON  c.oid=a.oprnamespace
+      WHERE  a.oprcode in (select oid from pg_proc where probin like '%data_encryption.so');
+      EOF
+    $ grep -v -f $TDEHOME/SOURCES/lib/upgrade/installed_list_fe_v1_0.txt -f <tdeoperator_list_file> <dumplist_file> > <restorelist_file>
+
+4. Uninstall old version of tdeforpg
+    $ sh $TDEHOME/SOURCES/bin/cipher_setup.sh $PGHOME
+    Transparent data encryption feature setup script
+    Please select from the setup menu below
+    Transparent data encryption feature setup menu
+    1: activate  the transparent data encryption feature
+    2: inactivate the transparent data encryption feature
+    select menu [1 - 2] > 2
+    Please enter database server port to connect : <port_number>
+    Please enter database user name to connect : <user_name>
+    Please enter password for authentication : <password>
+    Please enter database name to connect : <database>
+    INFO: The transparent data encryption feature has been inactivated
+    
+5. Drop the database
+    $ dropdb <database>
+
+6. Recreate a database which you are dropped just before
+    $ createdb <database>
+
+7. Delete old shared object file
+    $ sudo rm /usr/lib64/data_encryption.so
+
+8. Building and install new pgTDE to database
+    Please refer to the INSTALL-NOTE for more details.
+
+9. Restore database using pg_restore
+    $ PGOPTIONS="-c encrypt.enable=off" pg_restore -d <database> -L <restorelist_file> -e <dump_file>
+

@@ -1,0 +1,15 @@
+Release v1.1.0.0
+
+This release contains a following changes.
+  - Change the category of ENCRYPT_TEXT type to 'S' and modified to allow equivalent cast of 
+    text types. From this change, '||' operator is enabled to use for ENCRYPT_TEXT. And 
+    ENCRYPT_TEXT can be casted to tsquery or tsvector.
+  - Change implicitness of cast(TEXT as ENCRYPT_TEXT) from AS IMPLICIT to AS ASSIGNMENT.
+  - Fix pgtde_begin_session/pgtde_end_session failed to execute when search_path is not public
+  - Revise function volatility category of function. from this change, optimizer can generate 
+    a better execution plan
+  - Fix remain sensitive data in memory problem execute after pgtde_end_session function.
+
+Migration to Version V1.1.0.0
+   A dump/restore using pg_dump and pg_restore is required.
+   Please refer to the manual in wiki or UPGRADE-GUIDE.TXT

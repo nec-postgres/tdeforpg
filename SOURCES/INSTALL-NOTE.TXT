@@ -32,7 +32,7 @@ Installation and Configuration
     $ sh makedencryption.sh 93 $PGSRC
 
 4. install pgTDE to PostgreSQL
-    $ sudo ln -s $TDEHOME/SOURCES/data_encryption/93/data_encryption93.so.a.b.c.d /usr/lib64/data_encryption.so
+    $ sudo ln -s $TDEHOME/SOURCES/data_encryption/93/data_encryption93.so.<version> /usr/lib64/data_encryption.so
     $ vim $PGDATA/postgresql.conf  # add shared_preload_libraries to postgresql.conf 
     shared_preload_libraries='/usr/lib64/data_encryption.so'
     $ pg_ctl restart
