@@ -413,10 +413,13 @@ key_info* create_key_info(text* key, text* algorithm) {
 	/* cipher key must be stored in TopMemoryContext */
 	old_mem_context = MemoryContextSwitchTo(TopMemoryContext);
 	entry =(key_info*) palloc(sizeof(key_info));
-	/* caution text_to_cstring function using palloc internally
-	 * it must be free by pfree function */
-	entry->key       = (char*) text_to_cstring(key);
-	entry->algorithm = (char*) text_to_cstring(algorithm);
+
+	entry->key = (bytea *) palloc(VARSIZE(key));
+	memcpy((char *) entry->key, (char *) key, VARSIZE(key));
+
+	entry->algorithm = (text *) palloc(VARSIZE(algorithm));
+	memcpy((char *) entry->algorithm, (char *) algorithm, VARSIZE(algorithm));
+
 	MemoryContextSwitchTo(old_mem_context);
 
 	return entry;
@@ -648,18 +651,9 @@ bytea* encrypt(bytea* input_data) {
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
 					errmsg("TDE-E0016 could not encrypt data, because key was not set(01)")));
 	}
-	bytea    *tmp_key = NULL;
-	text     *tmp_algorithm = NULL;
-	bytea    *encrypted_data = NULL;
-
-	tmp_key = (bytea *) DatumGetPointer(DirectFunctionCall1(byteain, CStringGetDatum(newest_key_info->key)));
-	tmp_algorithm = cstring_to_text(newest_key_info->algorithm);
-	encrypted_data = (bytea *) DatumGetPointer(DirectFunctionCall3(pg_encrypt,
-			PointerGetDatum(input_data), PointerGetDatum(tmp_key), PointerGetDatum(tmp_algorithm)));
-	/* do not leave anything relate to key info in memory*/
-	px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
-	pfree(tmp_key);
-	pfree(tmp_algorithm);
+	bytea *encrypted_data = (bytea *) DatumGetPointer(DirectFunctionCall3(pg_encrypt,
+				PointerGetDatum(input_data), PointerGetDatum(newest_key_info->key),
+				PointerGetDatum(newest_key_info->algorithm)));
 	return encrypted_data;
 }
 
@@ -667,24 +661,11 @@ bytea* encrypt(bytea* input_data) {
 Datum decrypt(key_info* entry, bytea* encrypted_data) {
 	if(!is_session_opened()){
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
-					errmsg("TDE-E0016 could not encrypt data, because key was not set(02)")));
+					errmsg("TDE-E0017 could not decrypt data, because key was not set(01)")));
 	}
-	bytea    *tmp_key = NULL;
-	text     *tmp_algorithm = NULL;
-	Datum    tmp_result;
-
-	/* decrypting ciphertext */
-	tmp_key = (bytea *) DatumGetPointer(
-			DirectFunctionCall1(byteain, CStringGetDatum(entry->key)));
-	tmp_algorithm = cstring_to_text(entry->algorithm);
-	tmp_result = DirectFunctionCall3(pg_decrypt, PointerGetDatum(encrypted_data),
-			PointerGetDatum(tmp_key), PointerGetDatum(tmp_algorithm));
-	/* do not leave anything relate to key info in memory*/
-	px_memset(VARDATA_ANY(tmp_key), 0, VARSIZE_ANY_EXHDR(tmp_key));
-	pfree(tmp_key);
-	pfree(tmp_algorithm);
-
-	return tmp_result;
+	Datum result = DirectFunctionCall3(pg_decrypt, PointerGetDatum(encrypted_data),
+			PointerGetDatum(entry->key), PointerGetDatum(entry->algorithm));
+	return result;
 }
 
 /* add header to encrypted data */

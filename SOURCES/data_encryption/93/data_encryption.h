@@ -21,8 +21,8 @@
 
 /* structure for maintain encryption key information */
 typedef struct {
-	char           *key;          /* encryption key */
-	char           *algorithm;    /* encryption algorithm */
+	bytea           *key;          /* encryption key */
+	text           *algorithm;    /* encryption algorithm */
 }key_info;
 
 bytea* encrypt(bytea* tmp_data);
