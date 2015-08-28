@@ -13,8 +13,8 @@ CREATE TABLE tdetest_encbin_dest(id serial PRIMARY KEY, c1 encrypt_bytea);
 INSERT INTO tdetest_encbin (c1) SELECT md5(clock_timestamp()::text)::bytea FROM generate_series(1,10);
 INSERT INTO tdetest_encbin (c1) VALUES(NULL);
 
-\COPY tdetest_encbin TO './tdetest_encbin_test.tmp' WITH binary;
-\COPY tdetest_encbin_dest FROM './tdetest_encbin_test.tmp' WITH binary;
+\COPY tdetest_encbin TO '/tmp/tdetest_encbin_test.tmp' WITH binary;
+\COPY tdetest_encbin_dest FROM '/tmp/tdetest_encbin_test.tmp' WITH binary;
 
 SELECT results_eq('SELECT * FROM tdetest_encbin ORDER BY id',
                   'SELECT * FROM tdetest_encbin_dest ORDER BY id');
