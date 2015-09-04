@@ -284,53 +284,53 @@ SET check_function_bodies TO off;
 		'/usr/lib64/data_encryption.so','enctext_regclass'
 	LANGUAGE C STABLE STRICT;
 
-	/* encrypted test →  text */
+	/* encrypted test -> text */
 	CREATE CAST
 		(encrypt_text AS text)
 	WITH INOUT
 	AS IMPLICIT;
-	/* text →  encrypted text */
+	/* text -> encrypted text */
 	CREATE CAST
 		(text AS encrypt_text)
 	WITH INOUT
 	AS ASSIGNMENT;
-	/* boolean →  encrypted text */
+	/* boolean -> encrypted text */
 	CREATE CAST
 		(boolean AS encrypt_text)
 	WITH FUNCTION enctext(boolean)
 	AS ASSIGNMENT;
-	/* character →  encrypted text */
+	/* character -> encrypted text */
 	CREATE CAST
 		(character AS encrypt_text)
 	WITH FUNCTION enctext(character)
 	AS ASSIGNMENT;
-	/* cidr →  encrypted text */
+	/* cidr -> encrypted text */
 	CREATE CAST
 		(cidr AS encrypt_text)
 	WITH FUNCTION enctext(inet)
 	AS ASSIGNMENT;
-	/* inet →  encrypted text */
+	/* inet -> encrypted text */
 	CREATE CAST
 		(inet AS encrypt_text)
 	WITH FUNCTION enctext(inet)
 	AS ASSIGNMENT;
-	/* xml →  encrypted text */
+	/* xml -> encrypted text */
 	CREATE CAST
 		(xml AS encrypt_text)
 	WITH FUNCTION enctext(xml)
 	AS ASSIGNMENT;
-	/* encrypted text →  regclass */
+	/* encrypted text -> regclass */
 	CREATE CAST
 		(encrypt_text AS regclass)
 	WITH FUNCTION regclass(encrypt_text)
 	AS ASSIGNMENT;
 
-	/* binary →  encrypted binary */
+	/* binary -> encrypted binary */
 	CREATE CAST
 		(encrypt_bytea AS bytea)
 	WITH INOUT
 	AS IMPLICIT;
-	/* encrypted binary →  binary */
+	/* encrypted binary -> binary */
 	CREATE CAST
 		(bytea AS encrypt_bytea)
 	WITH INOUT
