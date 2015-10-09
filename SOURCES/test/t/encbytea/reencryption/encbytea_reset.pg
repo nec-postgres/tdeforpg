@@ -2,7 +2,9 @@ BEGIN;
 SELECT * FROM no_plan();
 
 -- start test
-SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_disable_log();
+select pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_enable_log();
 
 DROP TABLE IF EXISTS tdetest_encbin;
 DROP TABLE IF EXISTS tdetest_bin;
@@ -17,8 +19,10 @@ INSERT INTO tdetest_encbin(c1, ver) SELECT c1, ver FROM tdetest_bin;
 
 -- regist new cipher key
 SELECT pgtde_end_session();
+SELECT cipher_key_disable_log();
 SELECT cipher_key_regist('__replace__appropriate_encryption_key__','test2','aes');
 SELECT pgtde_begin_session('test2');
+SELECT cipher_key_enable_log();
 
 INSERT INTO tdetest_bin (c1, ver) SELECT c1,2 FROM tdetest_bin ORDER BY id;
 

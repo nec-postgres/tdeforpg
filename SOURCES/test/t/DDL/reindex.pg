@@ -10,7 +10,9 @@ CREATE TABLE tdetest_index_bytea (bytea encrypt_bytea);
 CREATE INDEX tdetest_idx_hash_txt ON tdetest_index_txt USING hash (txt);
 CREATE INDEX tdetest_idx_hash_bytea  ON tdetest_index_bytea  USING hash (bytea);
 
-SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_disable_log();
+select pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_enable_log();
 
 INSERT INTO tdetest_index_txt SELECT (random()*10000)::text FROM generate_series(1,100);
 INSERT INTO tdetest_index_txt VALUES('test encrypt type');

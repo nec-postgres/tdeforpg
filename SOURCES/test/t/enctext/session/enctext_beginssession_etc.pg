@@ -13,9 +13,10 @@ SELECT lives_ok('PREPARE tdetest_enctxt_select(text)       AS SELECT c1 FROM tde
 SELECT lives_ok('PREPARE tdetest_enctxt_update(text, text) AS UPDATE         tdetest_enctxt SET   c1=$1 WHERE c1=$2');
 SELECT lives_ok('PREPARE tdetest_enctxt_delete(text)       AS DELETE    FROM tdetest_enctxt WHERE c1=$1');
 
-
+SELECT cipher_key_disable_log();
 SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
                   'SELECT true');
+SELECT cipher_key_enable_log();
                   
 SELECT performs_ok('EXECUTE tdetest_enctxt_insert(''test prepare'')'    , 250);
 SELECT results_eq ('EXECUTE tdetest_enctxt_select(''test prepare'')' , $$VALUES (encrypt_text'test prepare')$$);

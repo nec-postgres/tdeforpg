@@ -13,9 +13,10 @@ SELECT lives_ok('PREPARE tdetest_encbin_select(bytea)       AS SELECT c1 FROM td
 SELECT lives_ok('PREPARE tdetest_encbin_update(bytea, bytea) AS UPDATE         tdetest_encbin SET   c1=$1 WHERE c1=$2');
 SELECT lives_ok('PREPARE tdetest_encbin_delete(bytea)       AS DELETE    FROM tdetest_encbin WHERE c1=$1');
 
-
+SELECT cipher_key_disable_log();
 SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
                   'SELECT true');
+SELECT cipher_key_enable_log();
                   
 SELECT performs_ok('EXECUTE tdetest_encbin_insert(''test prepare'')'    , 250);
 SELECT results_eq ('EXECUTE tdetest_encbin_select(''test prepare'')' , $$VALUES (encrypt_bytea'test prepare')$$);

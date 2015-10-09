@@ -66,9 +66,9 @@ UPDATE c SET c_xml=E'
 ' WHERE id=1;
 UPDATE c SET c_xml=NULL WHERE id=2;
 
---
---SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
-SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_disable_log();
+select pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_enable_log();
 INSERT INTO e values(9999,'regclass','cipher_key_table',E'\x3141592abcdef','cipher_key_table',E'\x3141592abcdef');
 INSERT INTO p values(9999,'regclass','cipher_key_table',E'\x3141592abcdef','cipher_key_table',E'\x3141592abcdef');
 -- test start

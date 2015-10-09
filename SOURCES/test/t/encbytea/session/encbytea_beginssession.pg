@@ -16,8 +16,10 @@ INSERT INTO tdetest_bin(c1) values('test encryption type');
 
 SELECT throws_like('INSERT INTO tdetest_encbin(c1) SELECT c1 FROM tdetest_bin','TDE-E0016%');
 
+SELECT cipher_key_disable_log();
 SELECT results_eq('SELECT pgtde_begin_session(''__replace__appropriate_encryption_key__'')', 
                   'SELECT true');
+SELECT cipher_key_enable_log();
                   
 SELECT lives_ok('INSERT INTO tdetest_encbin(c1) SELECT c1 FROM tdetest_bin');
 SELECT lives_ok('SELECT c1 FROM tdetest_encbin');
@@ -35,7 +37,9 @@ SELECT lives_ok('INSERT INTO tdetest_encbin(c1) SELECT c1 FROM tdetest_encbin');
 SELECT lives_ok('SELECT c1 FROM tdetest_encbin');
 
 SET encrypt.enable TO on;
-SELECT pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_disable_log();
+select pgtde_begin_session('__replace__appropriate_encryption_key__');
+select cipher_key_enable_log();
 
 
 SELECT results_eq('SELECT a.c1=b.c1 FROM tdetest_bin a, tdetest_encbin b', 
