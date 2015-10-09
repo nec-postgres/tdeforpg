@@ -22,13 +22,12 @@ DECLARE
 	f_result BOOLEAN;
 
 BEGIN
+	/* mask pg_stat_activity's query */
+	PERFORM mask_activity();
 
-	/* checking log_statement parameter if log encrypt.checklogparam is on */
-	IF cipher_key IS NOT NULL AND (SELECT setting FROM pg_settings WHERE name = 'encrypt.checklogparam') = 'on' THEN
-		/* function failed if log_statement is 'all' */
-		IF (SELECT setting FROM pg_settings WHERE name = 'log_statement') = 'all' THEN
-			RAISE EXCEPTION 'TDE-E0001 log_statement must not be ''all''(01)';
-		END IF;
+	/* if cipher_key_disable_log is not yet executed, output an error */
+	IF (SELECT setting FROM pg_settings WHERE name = 'encrypt.mask_cipherkeylog') != 'on' THEN
+		RAISE EXCEPTION 'TDE-E0036 you must call cipher_key_disable_log function first[01].';
 	END IF;
 
 	/* drop encryption key information in memory */
@@ -44,17 +43,17 @@ BEGIN
 		IF f_key_num = 0 THEN
 			RETURN FALSE;
 		ELSIF f_key_num>1 THEN
-			RAISE EXCEPTION 'TDE-E0009 too many encryption keys are exists in cipher_key_table(02)';
+			RAISE EXCEPTION 'TDE-E0009 too many encryption keys are exists in cipher_key_table[02]';
 		END IF;
 
 		BEGIN
-			/* load encrption key table to memory */
+			/* load encryption key table to memory */
 			PERFORM enc_store_key_info(pgp_sym_decrypt(key, cipher_key), algorithm)
 			FROM (SELECT key, algorithm FROM cipher_key_table) AS ckt;
 		EXCEPTION
 			WHEN SQLSTATE '39000' THEN
 				PERFORM enc_drop_key_info();
-				RAISE EXCEPTION 'TDE-E0012 cipher key is not correct(01)';
+				RAISE EXCEPTION 'TDE-E0012 cipher key is not correct[01]';
 		END;
 	END IF;
 	RETURN TRUE;

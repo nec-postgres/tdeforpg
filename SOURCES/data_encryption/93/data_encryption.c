@@ -21,6 +21,7 @@
 
 #include "postgres.h"
 #include "fmgr.h"
+#include "pgstat.h"
 #include "utils/guc.h"
 #include "utils/palloc.h"
 #include "utils/builtins.h"
@@ -31,6 +32,7 @@
 #include "access/hash.h"
 #include "libpq/pqformat.h"
 #include "utils/memutils.h"
+#include "catalog/pg_collation.h"
 
 #include "pgcrypto.h"
 #include "px.h"
@@ -44,14 +46,11 @@ PG_MODULE_MAGIC;
 /* enable encryption/decryption function */
 static bool encrypt_enable = true;
 
-/* checking log_statement is 'all' or not */
-static bool encrypt_checklogparam = true;
-
 /* backup of encryption key */
 static char *encrypt_backup = "";
 
-/* backup of log_statement value */
-int save_log_statement = -1;
+/* whether mask pgtde_begin_session query log or not */
+static bool encrypt_mask_cipherkeylog = false;
 
 /* backup of log_min_error_statement value*/
 int save_log_min_error_statement = -1;
@@ -65,26 +64,38 @@ key_info *newest_key_info = NULL;
 key_info *old_key_info = NULL;
 const short header = 1;
 
+/* mask log messages */
+static void suppress_cipherkeylog_hook(ErrorData *);
+
+/* backup the old one */
+static emit_log_hook_type prev_emit_log_hook = NULL;
+
+/* protect from recursive call */
+static bool being_hook = false;
 void
 _PG_init(void)
 {
+	/* load hook module */
+	prev_emit_log_hook = emit_log_hook;
+	emit_log_hook = suppress_cipherkeylog_hook;
+
+	DefineCustomBoolVariable("encrypt.mask_cipherkeylog",
+			"mask query log messages, string within () mark will be masked by *****",
+			NULL,
+			&encrypt_mask_cipherkeylog,
+			false,
+			PGC_SUSET,
+			0,
+			NULL,
+			NULL,
+			NULL);
+
 	DefineCustomBoolVariable("encrypt.enable",
 			"encryption on/off.",
 			NULL,
 			&encrypt_enable,
 			true,
 			PGC_USERSET,
-			0,
-			NULL,
-			NULL,
-			NULL);
-
-	DefineCustomBoolVariable("encrypt.checklogparam",
-			"log_statement check on/off.",
-			NULL,
-			&encrypt_checklogparam,
-			true,
-			PGC_SUSET,
 			0,
 			NULL,
 			NULL,
@@ -105,9 +116,140 @@ _PG_init(void)
 void
 _PG_fini(void)
 {
-
+	/* restore emit_log_hook when unload */
+	if (emit_log_hook == suppress_cipherkeylog_hook){
+		emit_log_hook = prev_emit_log_hook;
+	}
 }
 
+/* mask cipherkeylog hook */
+/*
+ * Function : suppress_cipherkeylog_hook
+ * ---------------------
+ * Mask query log messages.
+ * String in "()" mark will be quoted by *****.
+ *
+ * @param	*char ARG[0]		input ErrorData*
+ * @return	nothing
+ */
+static void
+suppress_cipherkeylog_hook(ErrorData *edata){
+	Datum convertedMsg;
+	char *regex = "[(].+\[)]";
+	char *mask  = "(*****)";
+	char *flag  = "g";
+	MemoryContext old_mem_context;
+
+	/* call the old one if exist */
+	if (prev_emit_log_hook){
+		prev_emit_log_hook(edata);
+	}
+
+	if(encrypt_mask_cipherkeylog && !(being_hook)){
+		/* protect from recursive call */
+		being_hook = true;
+		/* mask STATEMENT error messages */
+		if(debug_query_string){
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+					C_COLLATION_OID,
+					CStringGetTextDatum(debug_query_string),
+					CStringGetTextDatum(regex),
+					CStringGetTextDatum(mask),
+					CStringGetTextDatum(flag));
+			old_mem_context = MemoryContextSwitchTo(MessageContext);
+			debug_query_string = TextDatumGetCString(convertedMsg);
+			MemoryContextSwitchTo(old_mem_context);
+		}
+		/* mask normal log messages */
+		if(edata->message){
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+					C_COLLATION_OID,
+					CStringGetTextDatum(edata->message),
+					CStringGetTextDatum(regex),
+					CStringGetTextDatum(mask),
+					CStringGetTextDatum(flag));
+			/* do not leave anything relate to key info in memory*/
+			px_memset(edata->message,0,sizeof(edata->message));
+			pfree(edata->message);
+			edata->message = TextDatumGetCString(convertedMsg);
+		}
+
+		/* mask DETAIL error message
+		 * edata->detail_log never include any query message.
+		 * so we just mask only edata->detail.
+		 */
+		if(edata->detail){
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+					C_COLLATION_OID,
+					CStringGetTextDatum(edata->detail),
+					CStringGetTextDatum(regex),
+					CStringGetTextDatum(mask),
+					CStringGetTextDatum(flag));
+			/* The following must be execute only in extension protocol.
+			* But can not judge whether extension protocol or not */
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+				C_COLLATION_OID,
+				convertedMsg,
+				CStringGetTextDatum("parameters: .+"),
+				CStringGetTextDatum(mask),
+				CStringGetTextDatum(flag));
+			/* do not leave anything relate to key info in memory*/
+			px_memset(edata->detail,0,sizeof(edata->detail));
+			pfree(edata->detail);
+			edata->detail = TextDatumGetCString(convertedMsg);
+		}
+		/* QUERY error message
+		 * if a sql in function failed, then the query is printed as QUERY message.
+		 */
+		if(edata->internalquery){
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+				C_COLLATION_OID,
+				CStringGetTextDatum(edata->internalquery),
+				CStringGetTextDatum(regex),
+				CStringGetTextDatum(mask),
+				CStringGetTextDatum(flag));
+			/* do not leave anything relate to key info in memory*/
+			px_memset(edata->internalquery,0,sizeof(edata->internalquery));
+			pfree(edata->internalquery);
+			edata->internalquery = TextDatumGetCString(convertedMsg);
+		}
+		/* QUERY context message
+		 * cipher key is included in edata->context messages. So it must be masked
+		 */
+		if(edata->context){
+			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+				C_COLLATION_OID,
+				CStringGetTextDatum(edata->context),
+				CStringGetTextDatum(regex),
+				CStringGetTextDatum(mask),
+				CStringGetTextDatum(flag));
+			/* do not leave anything relate to key info in memory*/
+			px_memset(edata->context,0,sizeof(edata->context));
+			pfree(edata->context);
+			edata->context = TextDatumGetCString(convertedMsg);
+		}
+		/* protect from recursive call */
+		being_hook = false;
+	}
+}
+
+/*
+ * Function : mask_activity
+ * ---------------------
+ * masked pg_stat_activity's query column to specify text.
+ *
+ * @param	nothing
+ * @return	nothing
+ */
+PG_FUNCTION_INFO_V1(mask_activity);
+Datum
+mask_activity(PG_FUNCTION_ARGS)
+{
+	elog(DEBUG2,"TDE-D0002 masking pg_stat_activity's query.");
+	pgstat_report_activity(STATE_RUNNING,"<query masking...>");
+
+	PG_RETURN_VOID();
+}
 
 /*
  * Function : enctext_in
@@ -566,74 +708,6 @@ enc_rename_backupfile(PG_FUNCTION_ARGS)
 
 }
 
-
-/*
- * Function : enc_save_logsetting
- * ---------------------
- * backup current parameters of log_statement, log_min_error_statement and log_min_duration_statement
- *
- * @return true if parameters are backuped successfully
- */
-PG_FUNCTION_INFO_V1(enc_save_logsetting);
-
-Datum
-enc_save_logsetting(PG_FUNCTION_ARGS)
-{
-	/* if backup of current parameters are not exist */
-	if(save_log_statement == -1 && save_log_min_error_statement == -1 &&
-		save_log_min_duration_statement == -1){
-		/* backup current parameters */
-		save_log_statement = log_statement;
-		save_log_min_error_statement = log_min_error_statement;
-		save_log_min_duration_statement = log_min_duration_statement;
-
-		/* setting parameters, "do not log details"  */
-		log_statement = LOGSTMT_NONE;
-		log_min_error_statement = PANIC;
-		log_min_duration_statement = -1;
-	}
-	/* if parameters are already backuped */
-	else{
-		PG_RETURN_BOOL(FALSE);
-	}
-
-	PG_RETURN_BOOL(TRUE);
-}
-
-
-/*
- * Function : enc_restore_logsetting
- * ---------------------
- * restore log parameters from backup of parameters
- *
- * @return true if backup of parameters are exist
- */
-PG_FUNCTION_INFO_V1(enc_restore_logsetting);
-
-Datum
-enc_restore_logsetting(PG_FUNCTION_ARGS)
-{
-	/* return false, backcup of log parameters are not exist */
-	if(save_log_statement == -1 && save_log_min_error_statement == -1 &&
-		save_log_min_duration_statement == -1){
-		PG_RETURN_BOOL(FALSE);
-	}
-	else{
-		/* restore log parameters from backup of parameters */
-		log_statement = save_log_statement;
-		log_min_error_statement = save_log_min_error_statement;
-		log_min_duration_statement = save_log_min_duration_statement;
-
-		/* init backup of parameters */
-		save_log_statement = -1;
-		save_log_min_error_statement = -1;
-		save_log_min_duration_statement = -1;
-	}
-
-	PG_RETURN_BOOL(TRUE);
-
-}
-
 /* return true, if encryption key is set */
 bool
 is_session_opened() {
@@ -649,7 +723,7 @@ is_session_opened() {
 bytea* encrypt(bytea* input_data) {
 	if(!is_session_opened()){
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
-					errmsg("TDE-E0016 could not encrypt data, because key was not set(01)")));
+					errmsg("TDE-E0016 could not encrypt data, because key was not set[01]")));
 	}
 	bytea *encrypted_data = (bytea *) DatumGetPointer(DirectFunctionCall3(pg_encrypt,
 				PointerGetDatum(input_data), PointerGetDatum(newest_key_info->key),
@@ -661,7 +735,7 @@ bytea* encrypt(bytea* input_data) {
 Datum decrypt(key_info* entry, bytea* encrypted_data) {
 	if(!is_session_opened()){
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
-					errmsg("TDE-E0017 could not decrypt data, because key was not set(01)")));
+					errmsg("TDE-E0017 could not decrypt data, because key was not set[01]")));
 	}
 	Datum result = DirectFunctionCall3(pg_decrypt, PointerGetDatum(encrypted_data),
 			PointerGetDatum(entry->key), PointerGetDatum(entry->algorithm));

@@ -22,21 +22,21 @@ DECLARE
 	f_key_num SMALLINT;			/* number of encryption key*/
 
 BEGIN
-	/* if flag of checking log_statement is 'on', checking parameters */		
-	IF (SELECT setting FROM pg_settings WHERE name = 'encrypt.checklogparam') = 'on' THEN
-		/* of  log_statement is 'all' stop process and loggin error */
-		IF (SELECT setting FROM pg_settings WHERE name = 'log_statement') = 'all' THEN
-			RAISE EXCEPTION 'TDE-E0001 log_statement must not be ''all''(02)';
-		END IF;
+	/* mask pg_stat_activity's query */
+	PERFORM mask_activity();
+
+	/* if cipher_key_disable_log is not yet executed, output an error */
+	IF (SELECT setting FROM pg_settings WHERE name = 'encrypt.mask_cipherkeylog') != 'on' THEN
+		RAISE EXCEPTION 'TDE-E0036 you must call cipher_key_disable_log function first[02].';
 	END IF;
 
 	IF cipher_key IS NULL OR cipher_key = '' THEN
-		RAISE EXCEPTION 'TDE-E0002 new cipher key is invalid(01)';
+		RAISE EXCEPTION 'TDE-E0002 new cipher key is invalid[01]';
 	END IF;
 
 	/* validate encryption algorithm */
 	IF cipher_algorithm != 'aes' AND cipher_algorithm != 'bf' THEN
-		RAISE EXCEPTION 'TDE-E0003 invalid cipher algorithm "%"(01)', cipher_algorithm;
+		RAISE EXCEPTION 'TDE-E0003 invalid cipher algorithm "%"[01]', cipher_algorithm;
 	END IF;
 
 	SET LOCAL search_path TO public;
@@ -50,25 +50,25 @@ BEGIN
 	/* if encryption key is already exist */
 	IF f_key_num = 1 THEN
 		IF current_cipher_key IS NULL THEN
-			RAISE EXCEPTION 'TDE-E0008 current cipher key is not correct(01)';
+			RAISE EXCEPTION 'TDE-E0008 current cipher key is not correct[01]';
 		END IF;
 		/* if current key is valid and save current encryption algorithm*/
 		BEGIN
 			SELECT algorithm INTO current_cipher_algorithm FROM cipher_key_table WHERE pgp_sym_decrypt(key, current_cipher_key)=current_cipher_key;
 		EXCEPTION
 			WHEN SQLSTATE '39000' THEN
-				RAISE EXCEPTION 'TDE-E0008 current cipher key is not correct(01)';
+				RAISE EXCEPTION 'TDE-E0008 current cipher key is not correct[01]';
 		END;
 		/* delete current key */
 		DELETE FROM cipher_key_table;
 
 	/* too many key is exists */
 	ELSEIF f_key_num > 1 THEN
-			RAISE EXCEPTION 'TDE-E0009 too many encryption keys are exists in cipher_key_table(01)';
+			RAISE EXCEPTION 'TDE-E0009 too many encryption keys are exists in cipher_key_table[01]';
 	END IF;
 	
 	/* encrypt and register new key */
-	INSERT INTO cipher_key_table VALUES(pgp_sym_encrypt(cipher_key, cipher_key, 'cipher-algo=aes256, s2k-mode=1'), cipher_algorithm);
+	INSERT INTO cipher_key_table(key, algorithm) VALUES(pgp_sym_encrypt(cipher_key, cipher_key, 'cipher-algo=aes256, s2k-mode=1'), cipher_algorithm);
 	
 	/* backup encryption key table */
 	PERFORM cipher_key_backup();
@@ -185,11 +185,11 @@ BEGIN
 			END IF;
 		END LOOP;
 
-		RAISE INFO 'TDE-I0001 re-encryption of table "%"."%" was started(01)', f_nspname, f_relname;
+		RAISE INFO 'TDE-I0001 re-encryption of table "%"."%" was started[01]', f_nspname, f_relname;
 
 		EXECUTE f_query;
 
-		RAISE INFO 'TDE-I0002 re-encryption of table "%"."%" was completed(01)', f_nspname, f_relname;
+		RAISE INFO 'TDE-I0002 re-encryption of table "%"."%" was completed[01]', f_nspname, f_relname;
 	END LOOP;
 
 	CLOSE f_cu;
@@ -231,7 +231,7 @@ BEGIN
 		SELECT setting INTO f_filepath FROM pg_settings WHERE name = 'data_directory';
 
 		IF f_filepath IS NULL THEN
-			RAISE EXCEPTION 'TDE-E0014 could not get data directory path(01)';
+			RAISE EXCEPTION 'TDE-E0014 could not get data directory path[01]';
 		END IF;
 	END IF;
 
@@ -246,7 +246,7 @@ BEGIN
 	SELECT enc_rename_backupfile(f_filepath, f_old_filepath) INTO result;
 
 	IF result = FALSE THEN
-		RAISE EXCEPTION 'TDE-E0015 could not rename old backup file of cipher key(01)';
+		RAISE EXCEPTION 'TDE-E0015 could not rename old backup file of cipher key[01]';
 	END IF;
 
 	/* backup current encryption key table */
@@ -262,12 +262,10 @@ SET search_path TO public;
 /*------------------------------------------------------------*
  * Function : cipher_key_disable_log
  * 
- * backup current log parameters and set log parameter 
- * to lower level
- * related parameter is log_statement, log_min_error_statement
- * and log_min_duration_statement
+ * set track_activities to off and encrypt.mask_cipherkeylog to on.
+ * In order to remove cipher info in pg_stat_activity's query.
  * 
- * @return false if backup of log parameter is already exists
+ * @return TRUE
  *------------------------------------------------------------*/
 CREATE OR REPLACE FUNCTION cipher_key_disable_log () RETURNS BOOLEAN AS $$
 
@@ -275,24 +273,23 @@ DECLARE
 	save_result BOOLEAN;	/* result of backup current parameter */
 
 BEGIN
-	/* backup current parameters */
-	SELECT enc_save_logsetting() INTO save_result;
 
-	RETURN save_result;
+	SET track_activities = off;
+	SET encrypt.mask_cipherkeylog = on;
+	RETURN TRUE;
 
 END;
 $$ LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path TO public;
 
 
 /*------------------------------------------------------------*
  * Function : cipher_key_enable_log
  *
- * restore log parameter from backup
- * related parameter is log_statement, log_min_error_statement
- * and log_min_duration_statement
+ * set back track_activities to default and encrypt.mask_cipherkeylog to off.
  * 
- * @return false if backup is not exists
+ * @return TRUE
  *------------------------------------------------------------*/
 CREATE OR REPLACE FUNCTION cipher_key_enable_log () RETURNS BOOLEAN AS $$
 
@@ -300,11 +297,12 @@ DECLARE
 	save_result BOOLEAN;
 
 BEGIN
-	/* restore log parameter from backup */
-	SELECT enc_restore_logsetting() INTO save_result;
 
-	RETURN save_result;
+	SET track_activities = DEFAULT;
+	SET encrypt.mask_cipherkeylog = off;
+	RETURN TRUE;
 
 END;
 $$ LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path TO public;

@@ -194,23 +194,13 @@ SET check_function_bodies TO off;
 		'/usr/lib64/data_encryption.so','enc_rename_backupfile'
 	LANGUAGE C STRICT;
 
-	/* backup current parameters of loglevel */
 	CREATE OR REPLACE FUNCTION
-		enc_save_logsetting()
+		mask_activity()
 	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_save_logsetting'
-	LANGUAGE C STRICT;
-
-	/* restore log parameters from backup */
-	CREATE OR REPLACE FUNCTION
-		enc_restore_logsetting()
-	RETURNS
-		bool
-	AS
-		'/usr/lib64/data_encryption.so','enc_restore_logsetting'
-	LANGUAGE C STRICT;
+		void
+	AS 
+		'/usr/lib64/data_encryption.so','mask_activity'
+	LANGUAGE C STABLE STRICT;
 
 /* define index operator */
 	/* for encrypted text */
