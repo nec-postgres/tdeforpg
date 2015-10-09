@@ -306,3 +306,16 @@ END;
 $$ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO public;
+
+/*------------------------------------------------------------*
+ * Function : pgtde_version()
+ *
+ * return current TDE version.
+ * 
+ *------------------------------------------------------------*/
+CREATE OR REPLACE FUNCTION pgtde_version() RETURNS TEXT AS $$
+BEGIN
+	RETURN 'Free Edition 1.1.1.0';
+END;
+$$ LANGUAGE plpgsql;
+
