@@ -134,10 +134,12 @@ _PG_fini(void)
  */
 static void
 suppress_cipherkeylog_hook(ErrorData *edata){
-	Datum convertedMsg;
-	char *regex = "[(].+\[)]";
-	char *mask  = "(*****)";
-	char *flag  = "g";
+	/*
+	 * These temporary variables below are allocated in ErrorContext.
+	 * PostgreSQL do not reset ErrorContext when elevel is not in
+	 * ERROR, FATAL, PANIC. So we must pfree in this case.
+	 */
+	Datum convertedMsg, replaceMsg_tmp, regex, regex_param, mask, flag;
 	MemoryContext old_mem_context;
 
 	/* call the old one if exist */
@@ -146,32 +148,54 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 	}
 
 	if(encrypt_mask_cipherkeylog && !(being_hook)){
+		/* Arguments of textregexreplace.*/
+		regex = CStringGetTextDatum("[(].+[)]"),
+		mask  = CStringGetTextDatum("(*****)"),
+		flag  = CStringGetTextDatum("g");
+
 		/* protect from recursive call */
 		being_hook = true;
 		/* mask STATEMENT error messages */
 		if(debug_query_string){
+			replaceMsg_tmp = CStringGetTextDatum(debug_query_string);
 			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
 					C_COLLATION_OID,
-					CStringGetTextDatum(debug_query_string),
-					CStringGetTextDatum(regex),
-					CStringGetTextDatum(mask),
-					CStringGetTextDatum(flag));
+					replaceMsg_tmp,
+					regex,
+					mask,
+					flag);
+			if(replaceMsg_tmp){
+				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				pfree((void*)replaceMsg_tmp);
+			}
 			old_mem_context = MemoryContextSwitchTo(MessageContext);
 			debug_query_string = TextDatumGetCString(convertedMsg);
 			MemoryContextSwitchTo(old_mem_context);
+			if(convertedMsg){
+				pfree((void*)convertedMsg);
+			}
 		}
+
 		/* mask normal log messages */
 		if(edata->message){
+			replaceMsg_tmp = CStringGetTextDatum(edata->message);
 			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
 					C_COLLATION_OID,
-					CStringGetTextDatum(edata->message),
-					CStringGetTextDatum(regex),
-					CStringGetTextDatum(mask),
-					CStringGetTextDatum(flag));
+					replaceMsg_tmp,
+					regex,
+					mask,
+					flag);
+			if(replaceMsg_tmp){
+				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				pfree((void*)replaceMsg_tmp);
+			}
 			/* do not leave anything relate to key info in memory*/
 			px_memset(edata->message,0,sizeof(edata->message));
 			pfree(edata->message);
 			edata->message = TextDatumGetCString(convertedMsg);
+			if(convertedMsg){
+				pfree((void*)convertedMsg);
+			}
 		}
 
 		/* mask DETAIL error message
@@ -179,55 +203,95 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 		 * so we just mask only edata->detail.
 		 */
 		if(edata->detail){
+			replaceMsg_tmp = CStringGetTextDatum(edata->detail);
 			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
 					C_COLLATION_OID,
-					CStringGetTextDatum(edata->detail),
-					CStringGetTextDatum(regex),
-					CStringGetTextDatum(mask),
-					CStringGetTextDatum(flag));
+					replaceMsg_tmp,
+					regex,
+					mask,
+					flag);
+			if(replaceMsg_tmp){
+				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				pfree((void*)replaceMsg_tmp);
+			}
 			/* The following must be execute only in extension protocol.
 			* But can not judge whether extension protocol or not */
-			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+			regex_param = CStringGetTextDatum("parameters: .+");
+			replaceMsg_tmp = DirectFunctionCall4Coll(textregexreplace,
 				C_COLLATION_OID,
 				convertedMsg,
-				CStringGetTextDatum("parameters: .+"),
-				CStringGetTextDatum(mask),
-				CStringGetTextDatum(flag));
+				regex_param,
+				mask,
+				flag);
+			if(convertedMsg){
+				px_memset((void*)convertedMsg,0,sizeof(convertedMsg));
+				pfree((void*)convertedMsg);
+			}
+			if(regex_param){
+				pfree((void*)regex_param);
+			}
 			/* do not leave anything relate to key info in memory*/
 			px_memset(edata->detail,0,sizeof(edata->detail));
 			pfree(edata->detail);
-			edata->detail = TextDatumGetCString(convertedMsg);
+			edata->detail = TextDatumGetCString(replaceMsg_tmp);
+			if(replaceMsg_tmp){
+				pfree((void*)replaceMsg_tmp);
+			}
 		}
+
 		/* QUERY error message
 		 * if a sql in function failed, then the query is printed as QUERY message.
 		 */
 		if(edata->internalquery){
+			replaceMsg_tmp = CStringGetTextDatum(edata->internalquery);
 			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
 				C_COLLATION_OID,
-				CStringGetTextDatum(edata->internalquery),
-				CStringGetTextDatum(regex),
-				CStringGetTextDatum(mask),
-				CStringGetTextDatum(flag));
+				replaceMsg_tmp,
+				regex,
+				mask,
+				flag);
+			if(replaceMsg_tmp){
+				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				pfree((void*)replaceMsg_tmp);
+			}
 			/* do not leave anything relate to key info in memory*/
 			px_memset(edata->internalquery,0,sizeof(edata->internalquery));
 			pfree(edata->internalquery);
 			edata->internalquery = TextDatumGetCString(convertedMsg);
+			if(convertedMsg){
+				pfree((void*)convertedMsg);
+			}
 		}
+
 		/* QUERY context message
 		 * cipher key is included in edata->context messages. So it must be masked
 		 */
 		if(edata->context){
-			convertedMsg = DirectFunctionCall4Coll(textregexreplace,
+			replaceMsg_tmp = CStringGetTextDatum(edata->context);
+				convertedMsg = DirectFunctionCall4Coll(textregexreplace,
 				C_COLLATION_OID,
-				CStringGetTextDatum(edata->context),
-				CStringGetTextDatum(regex),
-				CStringGetTextDatum(mask),
-				CStringGetTextDatum(flag));
+				replaceMsg_tmp,
+				regex,
+				mask,
+				flag);
+			if(replaceMsg_tmp){
+				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				pfree((void*)replaceMsg_tmp);
+			}
 			/* do not leave anything relate to key info in memory*/
 			px_memset(edata->context,0,sizeof(edata->context));
 			pfree(edata->context);
 			edata->context = TextDatumGetCString(convertedMsg);
+			if(convertedMsg){
+				pfree((void*)convertedMsg);
+			}
 		}
+		if(regex)
+			pfree((void*)regex);
+		if(mask)
+			pfree((void*)mask);
+		if(flag)
+			pfree((void*)flag);
 		/* protect from recursive call */
 		being_hook = false;
 	}
