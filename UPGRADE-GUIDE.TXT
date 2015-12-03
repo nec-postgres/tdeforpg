@@ -30,7 +30,7 @@ How to Upgrade from old version
                            JOIN pg_namespace c ON  c.oid=a.oprnamespace
       WHERE  a.oprcode in (select oid from pg_proc where probin like '%data_encryption.so');
       EOF
-    $ grep -v -f $TDEHOME/SOURCES/lib/upgrade/installed_list_fe_v1_0.txt -f <tdeoperator_list_file> <dumplist_file> > <restorelist_file>
+    $ grep -v -f $TDEHOME/SOURCES/lib/upgrade/installed_list_fe_<old_version>.txt -f <tdeoperator_list_file> <dumplist_file> > <restorelist_file>
 
 4. Uninstall old version of tdeforpg
     $ sh $TDEHOME/SOURCES/bin/cipher_setup.sh $PGHOME
