@@ -120,9 +120,12 @@ cipher_key_regist(){
     esac
   done
 
-  psql -w -c "select cipher_key_disable_log();
-              select cipher_key_regist('${CURRENT_CIPHER_KEY}', '${NEW_CIPHER_KEY}','${ALGORITHM}');
-              select cipher_key_enable_log();"
+(psql -w <<EOF
+     select cipher_key_disable_log();
+     select cipher_key_regist('${CURRENT_CIPHER_KEY}', '${NEW_CIPHER_KEY}','${ALGORITHM}');
+     select cipher_key_enable_log();
+EOF
+) 1>/dev/null
 
   return $?
 }
