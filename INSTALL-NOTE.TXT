@@ -4,15 +4,16 @@ Installation instructions for Transparent Data Encryption for PostgreSQL Free Ed
 
 Requirements
 ============
-1. PostgreSQL 9.3 Source Code
-2. PostgreSQL 9.3 with psql installed
+1. PostgreSQL Source Code
+   # It is not required, if you installed tdeforpg from RPM.
+2. PostgreSQL with psql installed
 
 Installation and Configuration
 ==============================
 1. Setting environment variables
     $ export PGSRC = #path of PostgreSQL source code
     $ export PGHOME = #path of PostgreSQL installed
-    $ export TDEHOME = #path of pgTDE downloaded
+    $ export TDEHOME = #path of tdeforpg downloaded
 
 2. Install pgcrypto from source code
     # If you have already installed pgcrypto, you can skip this section.
@@ -25,14 +26,17 @@ Installation and Configuration
     > EOF
 
 3. Building pgTDE
+    # If you installed tdeforpg from RPM, please skip this section.
     $ sudo ln -s $PGHOME/lib/pgcrypto.so /usr/lib64/libpgcrypto.so
     $ cd $PGSRC
     $ ./configure
     $ cd $TDEHOME/SOURCES/data_encryption
-    $ sh makedencryption.sh 93 $PGSRC
+    $ sh makedencryption.sh <pgver> $PGSRC
+      # <pgver> is version of PostgreSQL without dot (93 or 94)
+
 
 4. install pgTDE to PostgreSQL
-    $ sudo ln -s $TDEHOME/SOURCES/data_encryption/93/data_encryption93.so.<version> /usr/lib64/data_encryption.so
+    $ sudo ln -s $TDEHOME/SOURCES/data_encryption/<pgver>/data_encryption<pgver>.so.<version> /usr/lib64/data_encryption.so
     $ vim $PGDATA/postgresql.conf  # add shared_preload_libraries to postgresql.conf 
     shared_preload_libraries='/usr/lib64/data_encryption.so'
     $ pg_ctl restart

@@ -15,7 +15,7 @@ How to Upgrade from old version
 ===============================
 1. Setting environment variables
     $ export PGHOME = #path of PostgreSQL installed
-    $ export TDEHOME = #path of pgTDE downloaded
+    $ export TDEHOME = #path of tdeforpg downloaded
 
 2. Dump existing database using pg_dump
     $ PGOPTIONS="-c encrypt.enable=off" pg_dump -f <dump_file> -Fc <database>
@@ -55,7 +55,7 @@ How to Upgrade from old version
 7. Delete old shared object file
     $ sudo rm /usr/lib64/data_encryption.so
 
-8. Building and install new pgTDE to database
+8. Building and install new tdeforpg to database
     Please refer to the INSTALL-NOTE for more details.
 
 9. Restore database using pg_restore
