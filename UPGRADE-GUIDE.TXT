@@ -21,7 +21,7 @@ How to Upgrade from old version
     $ PGOPTIONS="-c encrypt.enable=off" pg_dump -f <dump_file> -Fc <database>
     
 3. Make a restore list from dumpfile
-    $ pg_restore -l <> > <dumplist_file>
+    $ pg_restore -l <dump_file> > <dumplist_file>
     $ psql -F ' ' -d <database>  << EOF | grep -E [0-9]+ > <tdeoperator_list_file>
       \t
       \a
