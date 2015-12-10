@@ -336,7 +336,7 @@ enctext_in(PG_FUNCTION_ARGS)
 	/* if encrypt_enable is true, encrypting plain text and return */
 	if (encrypt_enable) {
 		plain_data = (bytea *) DatumGetPointer(DirectFunctionCall1(textin, CStringGetDatum(input_text)));
-		encrypted_data = encrypt(plain_data);
+		encrypted_data = pgtde_encrypt(plain_data);
 		pfree(plain_data);
 
 		/* add header(dummy) to encrypted data */
@@ -383,7 +383,7 @@ enctext_out(PG_FUNCTION_ARGS)
 		/* remove header from input data */
 		encrypted_data = remove_header_from_inputdata(input_data);
 		/* decrypting ciphertext */
-		tmp_result = decrypt(entry, encrypted_data);
+		tmp_result = pgtde_decrypt(entry, encrypted_data);
 		result = DirectFunctionCall1(textout, tmp_result);
 
 		pfree(encrypted_data);
@@ -422,7 +422,7 @@ encbytea_in(PG_FUNCTION_ARGS)
 	if (encrypt_enable) {
 		/* get key and encryption algorithm and encrypt data */
 		plain_data = (bytea *) DatumGetPointer(DirectFunctionCall1(byteain, CStringGetDatum(input_text)));
-		encrypted_data = encrypt(plain_data);
+		encrypted_data = pgtde_encrypt(plain_data);
 		pfree(plain_data);
 		/* add header information to encrypted data */
 		result = add_header_to_result(encrypted_data);
@@ -469,7 +469,7 @@ encbytea_out(PG_FUNCTION_ARGS)
 		encrypted_data = remove_header_from_inputdata(input_data);
 
 		/* decrypting ciphertext */
-		tmp_result = decrypt(entry, encrypted_data);
+		tmp_result = pgtde_decrypt(entry, encrypted_data);
 		result = DirectFunctionCall1(byteaout, tmp_result);
 
 		pfree(encrypted_data);
@@ -784,7 +784,7 @@ is_session_opened() {
 
 
 /* encrypt input_data using lastest key and return */
-bytea* encrypt(bytea* input_data) {
+bytea* pgtde_encrypt(bytea* input_data) {
 	if(!is_session_opened()){
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
 					errmsg("TDE-E0016 could not encrypt data, because key was not set[01]")));
@@ -796,7 +796,7 @@ bytea* encrypt(bytea* input_data) {
 }
 
 /* decrypt encrypted_data using entry and return */
-Datum decrypt(key_info* entry, bytea* encrypted_data) {
+Datum pgtde_decrypt(key_info* entry, bytea* encrypted_data) {
 	if(!is_session_opened()){
 		ereport(ERROR, (errcode(ERRCODE_IO_ERROR),
 					errmsg("TDE-E0017 could not decrypt data, because key was not set[01]")));

@@ -25,8 +25,8 @@ typedef struct {
 	text           *algorithm;    /* encryption algorithm */
 }key_info;
 
-bytea* encrypt(bytea* tmp_data);
-Datum decrypt(key_info* entry, bytea* encrypted_data);
+bytea* pgtde_encrypt(bytea* tmp_data);
+Datum pgtde_decrypt(key_info* entry, bytea* encrypted_data);
 bytea* add_header_to_result(bytea* encrypted_data);
 bytea* remove_header_from_inputdata(bytea* input_data);
 bool cmp_binary(bytea* barg1, bytea* barg2);
