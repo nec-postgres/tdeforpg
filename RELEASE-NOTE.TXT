@@ -1,3 +1,13 @@
+Release v1.1.1.1
+
+This release contains a fix from 1.1.1.0.
+  - Avoid possible name conflct of internal function.
+
+Migration to Version V1.1.1.1
+   A dump/restore is not required for running 1.1.1.0
+   Replace shared object file(.so) and run below script, and then restart PostgreSQL.
+   - SOURCES/lib/init/cipher_key_function.sql
+
 Release v1.1.1.0
 
 This release contains following changes.
