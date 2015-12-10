@@ -1,7 +1,7 @@
 Release v1.1.1.1
 
 This release contains a fix from 1.1.1.0.
-  - Avoid possible name conflct of internal function.
+  - Avoid possible name conflict of internal function.
 
 Migration to Version V1.1.1.1
    A dump/restore is not required for running 1.1.1.0
