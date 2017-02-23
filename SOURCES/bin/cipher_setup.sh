@@ -90,7 +90,7 @@ file_exist_check(){
   if [ ! -f "$1" ];
   then
     echo "ERROR: There is not exist a definition-script : $1"
-    rm -rf "${INSTALLFILE}"
+    rm -f "${INSTALLFILE}"
     exit 1;
   fi
 }
@@ -161,8 +161,8 @@ validate(){
   CIPHER_EXIST=`psql -t -c "SELECT COUNT(*) FROM PG_TABLES WHERE TABLENAME='${KEYTBL}';"`
   if [ $CIPHER_EXIST -eq 1 ];
   then
-    echo "ERROR: Transparent data encryption function has already been activated"
-    exit 1;
+    echo "WARN: Transparent data encryption function has already been activated"
+    exit 0;
   fi   
 
 
@@ -192,8 +192,10 @@ validate(){
 
     #init activation file
     echo "" > "${INSTALLFILE}"
+	#only root can read this file
+	chmod 600 "${INSTALLFILE}"
     #remove installation file, if installation is terminated abnormally  
-    trap 'rm -rf "${INSTALLFILE}"; exit 1;' 1 2 3 15
+    trap 'rm -f "${INSTALLFILE}"; exit 1;' 1 2 3 15
     #rename cipher_key_table_uninst to cipher_key_table
     QUERY="ALTER TABLE \"${NOKEYTBL}\" RENAME TO \"${KEYTBL}\";";
     echo "${QUERY}" >> "${INSTALLFILE}"
@@ -208,8 +210,10 @@ validate(){
 
     #init activation file
     echo "" > "${INSTALLFILE}"
+	#only root can read this file
+	chmod 600 "${INSTALLFILE}"
     #remove installation file, if installation is terminated abnormally
-    trap 'rm -rf "${INSTALLFILE}"; exit 1;' 1 2 3 15    
+    trap 'rm -f "${INSTALLFILE}"; exit 1;' 1 2 3 15    
     cat "${SCRPATH}/cipher_definition.sql" >> "${INSTALLFILE}"
     cat "${SCRPATH}/cipher_key_function.sql" >> "${INSTALLFILE}" 
     echo "GRANT SELECT ON cipher_key_table TO PUBLIC;" >> "${INSTALLFILE}"
@@ -226,9 +230,13 @@ validate(){
     printErr >> "${ERRFILE}"
     echo "ERROR: Could not activate  transparent data encryption feature"
     echo "HINT : Please see ${ERRFILE} for detail" 
-    rm -rf "${INSTALLFILE}"
+    rm -f "${INSTALLFILE}"
     exit 1;
   fi
+  
+  #empty the INSTALLFILE
+  echo " " > "${INSTALLFILE}"
+  
   #remove empty error log
   rm -rf "${ERRFILE}"
 
@@ -254,8 +262,8 @@ invalidate(){
   CIPHER_EXIST=`psql -t -c "SELECT COUNT(*) FROM PG_TABLES WHERE TABLENAME='${KEYTBL}';"` 
   if [ $CIPHER_EXIST -eq 0 ];
   then  #cipher_key_table is not exists
-    echo "ERROR: Transparent data encryption feature has not been activated yet"
-    exit 1
+    echo "WARN: Transparent data encryption feature has not been activated yet"
+    exit 0
   fi
 
   #store all query for inactivate to file
@@ -267,7 +275,8 @@ invalidate(){
   fi
   #init inactivate file
   echo "" > "${INSTALLFILE}"
-
+  #only root can read this file
+  chmod 600 "${INSTALLFILE}"
   #drop session function C
   echo "DROP FUNCTION PGTDE_BEGIN_SESSION(TEXT);" >> "${INSTALLFILE}"
   #drop end session function
