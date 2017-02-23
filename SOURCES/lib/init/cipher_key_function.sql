@@ -315,7 +315,7 @@ SET search_path TO public;
  *------------------------------------------------------------*/
 CREATE OR REPLACE FUNCTION pgtde_version() RETURNS TEXT AS $$
 BEGIN
-	RETURN 'Free Edition 1.1.1.1';
+	RETURN 'Free Edition 1.1.2.0';
 END;
 $$ LANGUAGE plpgsql;
 

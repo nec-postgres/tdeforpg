@@ -1,7 +1,7 @@
 #! /bin/bash
 #data_encryption module build script
 
-TDEVERSION=1.1.1.1
+TDEVERSION=1.1.2.0
 PGVERSION=$1
 SPATH=$2
 
