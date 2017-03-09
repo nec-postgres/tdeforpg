@@ -1,3 +1,16 @@
+Release v1.1.2.0
+
+This release contains following changes.
+  - Added support for RHEL7.
+  - Added support for PostgreSQL 9.5.
+  - cipher_setup.sh: ERROR when validate/invalidate TDE feature to database
+    which already done, now change to WARNING level with return code 0.
+  - cipher_setup.sh: Security enhancement when activating TDE feature.
+ 
+Migration to Version V1.1.2.0
+   A dump/restore using pg_dump and pg_restore is required.
+   Please refer to the manual in wiki or UPGRADE-GUIDE.TXT
+
 Release v1.1.1.1
 
 This release contains a fix from 1.1.1.0.
