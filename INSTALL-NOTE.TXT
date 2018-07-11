@@ -53,3 +53,15 @@ Installation and Configuration
     Please enter password for authentication : <password>
     Please enter database name to connect : <db_name>
 
+5. AES-NI support
+    pgcrypto from PostgreSQL 10 support AES-NI.
+    You can use Windows installer, Linux rpm or build your PostgreSQL
+    with --with-openssl option.
+    
+    In PostgreSQL 9.5 or 9.6, if you want to use AES-NI supported pgcrypto,
+    Please replace ${PGHOME}/lib/pgcrypto.so (pgcrypto.dll in Windows) 
+    with the AES-NI supported binary below,
+    
+    Linux: ${TDEHOME}/SOURCES/data_encryption/<pgver>/libpgcrypto<pgver>.so.<version>
+    Windows: ${TDEHOME}\lib\pgcrypto.dll
+

@@ -1,3 +1,22 @@
+Release v1.2.1.0
+
+Summary of changes in this version:
+
+- Added support for the following Windows platforms.
+  - Windows Server 2012
+  - Windows Server 2012 R2
+  - Windows Server 2016
+- Added support for the following PostgreSQL Version
+  - PostgreSQL 9.6
+  - PostgreSQL 10
+- Added support for the AES-NI instruction set (high-speed encryption and decryption by AES supported processors)
+- Improve performance for encrypted/decrypted datatype.
+
+Migration to Version V1.2.1.0
+
+- A dump/restore using pg_dump and pg_restore is required.
+  Please refer to the manual in wiki or UPGRADE-GUIDE.TXT
+
 Release v1.1.2.0
 
 This release contains following changes.
