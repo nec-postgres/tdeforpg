@@ -1,0 +1,11 @@
+--- /home/bocap/src/tar/postgresql-9.6.1/contrib/pgcrypto/pgp-encrypt.c	2016-10-25 05:08:51.000000000 +0900
++++ pgp-encrypt.c	2017-09-09 09:54:50.084723849 +0900
+@@ -217,6 +217,8 @@
+ {
+ 	struct EncStat *st = priv;
+ 
++	if (st->ciph)
++		pgp_cfb_free(st->ciph);
+ 	px_memset(st, 0, sizeof(*st));
+ 	px_free(st);
+ }

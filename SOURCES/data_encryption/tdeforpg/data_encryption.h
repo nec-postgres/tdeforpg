@@ -25,6 +25,12 @@ typedef struct {
 	text           *algorithm;    /* encryption algorithm */
 }key_info;
 
+#if PG_VERSION_NUM >= 100000
+/* Need to define these 2 functions from PostgreSQL 10 */
+Datum pg_encrypt(PG_FUNCTION_ARGS);
+Datum pg_decrypt(PG_FUNCTION_ARGS);
+#endif
+
 bytea* pgtde_encrypt(bytea* input_data);
 Datum pgtde_decrypt(key_info* entry, bytea* encrypted_data);
 bytea* add_header_to_result(bytea* encrypted_data);

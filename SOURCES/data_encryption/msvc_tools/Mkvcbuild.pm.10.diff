@@ -1,0 +1,38 @@
+--- Mkvcbuild.pm.orig	2018-02-27 07:10:46 +0900
++++ Mkvcbuild.pm	2018-05-22 14:06:14 +0900
+@@ -46,7 +46,7 @@
+ 	'ltree_plpython',  'pgcrypto',
+ 	'sepgsql',         'brin',
+ 	'test_extensions', 'test_pg_dump',
+-	'snapshot_too_old');
++	'snapshot_too_old', 'data_encryption');
+ 
+ # Set of variables for frontend modules
+ my $frontend_defines = { 'initdb' => 'FRONTEND' };
+@@ -469,6 +469,26 @@
+ 		closedir($D);
+ 	}
+ 
++	### TDEforPG build ###
++	######################
++	my $data_encryption =
++	  $solution->AddProject('data_encryption', 'dll', 'data_encryption', 'contrib/data_encryption');
++	# source files
++	$data_encryption->AddFiles(
++		'contrib/data_encryption', 'data_encryption.c');
++	# resource file
++	$data_encryption->AddFile('contrib/data_encryption/win32ver.rc');
++	
++	$data_encryption->AddIncludeDir('src/include');
++	$data_encryption->AddIncludeDir('contrib/pgcrypto');
++	$data_encryption->AddIncludeDir('src/include/port/win32');
++	$data_encryption->AddLibrary('Release/postgres/postgres.lib');
++	$data_encryption->AddLibrary('Release/pgcrypto/pgcrypto.lib');
++	$data_encryption->AddLibrary('ws2_32.lib');
++	$data_encryption->AddReference($postgres, $pgcrypto);
++	
++	######################
++
+ 	# Build Perl and Python modules after contrib/ modules to satisfy some
+ 	# dependencies with transform contrib modules, like hstore_plpython
+ 	# ltree_plpython and hstore_plperl.

@@ -34,6 +34,12 @@
 #include "utils/memutils.h"
 #include "catalog/pg_collation.h"
 
+/* Support logical replication in linux environment */
+#if (!defined(WIN32)) && (PG_VERSION_NUM >= 100000)
+#include "replication/walsender.h"
+#include "replication/logicalworker.h"
+#endif
+
 #include "pgcrypto.h"
 #include "px.h"
 
@@ -72,9 +78,21 @@ static emit_log_hook_type prev_emit_log_hook = NULL;
 
 /* protect from recursive call */
 static bool being_hook = false;
+static bool isLoaded = false;
+
 void
 _PG_init(void)
 {
+	/* 
+	* _PG_init is only need call one time, when postmaster start 
+	*/
+	
+	if(isLoaded){
+		return;
+	}
+	/* set loaded flag to true */
+	isLoaded = true;
+
 	/* load hook module */
 	prev_emit_log_hook = emit_log_hook;
 	emit_log_hook = suppress_cipherkeylog_hook;
@@ -165,12 +183,21 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 					mask,
 					flag);
 			if(replaceMsg_tmp){
-				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				px_memset((void*)replaceMsg_tmp,0,strlen(DatumGetCString(replaceMsg_tmp)));
 				pfree((void*)replaceMsg_tmp);
 			}
-			old_mem_context = MemoryContextSwitchTo(MessageContext);
-			debug_query_string = TextDatumGetCString(convertedMsg);
-			MemoryContextSwitchTo(old_mem_context);
+			if (MessageContext)
+			{
+				old_mem_context = MemoryContextSwitchTo(MessageContext);
+				debug_query_string = TextDatumGetCString(convertedMsg);
+				MemoryContextSwitchTo(old_mem_context);
+			}
+			else
+			{
+				/* In case of MessageContext == NULL 
+ 				* e.g when parallel worker is running */
+				debug_query_string = TextDatumGetCString(convertedMsg);
+			}
 			if(convertedMsg){
 				pfree((void*)convertedMsg);
 			}
@@ -186,11 +213,11 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 					mask,
 					flag);
 			if(replaceMsg_tmp){
-				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				px_memset((void*)replaceMsg_tmp,0,strlen(DatumGetCString(replaceMsg_tmp)));
 				pfree((void*)replaceMsg_tmp);
 			}
 			/* do not leave anything relate to key info in memory*/
-			px_memset(edata->message,0,sizeof(edata->message));
+			px_memset(edata->message,0,strlen((char*)edata->message));
 			pfree(edata->message);
 			edata->message = TextDatumGetCString(convertedMsg);
 			if(convertedMsg){
@@ -211,7 +238,7 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 					mask,
 					flag);
 			if(replaceMsg_tmp){
-				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				px_memset((void*)replaceMsg_tmp,0,strlen(DatumGetCString(replaceMsg_tmp)));
 				pfree((void*)replaceMsg_tmp);
 			}
 			/* The following must be execute only in extension protocol.
@@ -224,14 +251,14 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 				mask,
 				flag);
 			if(convertedMsg){
-				px_memset((void*)convertedMsg,0,sizeof(convertedMsg));
+				px_memset((void*)convertedMsg,0,strlen(DatumGetCString(convertedMsg)));
 				pfree((void*)convertedMsg);
 			}
 			if(regex_param){
 				pfree((void*)regex_param);
 			}
 			/* do not leave anything relate to key info in memory*/
-			px_memset(edata->detail,0,sizeof(edata->detail));
+			px_memset(edata->detail,0,strlen((char*)edata->detail));
 			pfree(edata->detail);
 			edata->detail = TextDatumGetCString(replaceMsg_tmp);
 			if(replaceMsg_tmp){
@@ -251,11 +278,11 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 				mask,
 				flag);
 			if(replaceMsg_tmp){
-				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				px_memset((void*)replaceMsg_tmp,0,strlen(DatumGetCString(replaceMsg_tmp)));
 				pfree((void*)replaceMsg_tmp);
 			}
 			/* do not leave anything relate to key info in memory*/
-			px_memset(edata->internalquery,0,sizeof(edata->internalquery));
+			px_memset(edata->internalquery,0,strlen((char*)edata->internalquery));
 			pfree(edata->internalquery);
 			edata->internalquery = TextDatumGetCString(convertedMsg);
 			if(convertedMsg){
@@ -275,11 +302,11 @@ suppress_cipherkeylog_hook(ErrorData *edata){
 				mask,
 				flag);
 			if(replaceMsg_tmp){
-				px_memset((void*)replaceMsg_tmp,0,sizeof(replaceMsg_tmp));
+				px_memset((void*)replaceMsg_tmp,0,strlen(DatumGetCString(replaceMsg_tmp)));
 				pfree((void*)replaceMsg_tmp);
 			}
 			/* do not leave anything relate to key info in memory*/
-			px_memset(edata->context,0,sizeof(edata->context));
+			px_memset(edata->context,0,strlen((char*)edata->context));
 			pfree(edata->context);
 			edata->context = TextDatumGetCString(convertedMsg);
 			if(convertedMsg){
@@ -333,8 +360,14 @@ enctext_in(PG_FUNCTION_ARGS)
 	bytea    *result = NULL;         /* header + encyrpted_data  */
 	bytea    *plain_data = NULL;
 
+#if (!defined(WIN32)) && (PG_VERSION_NUM >= 100000)
+	/* If encrypt_enable and i am not logical worker, encrypting plain text and return */
+	if (encrypt_enable && !IsLogicalWorker()) 
+#else
 	/* if encrypt_enable is true, encrypting plain text and return */
-	if (encrypt_enable) {
+	if (encrypt_enable) 
+#endif
+	{
 		plain_data = (bytea *) DatumGetPointer(DirectFunctionCall1(textin, CStringGetDatum(input_text)));
 		encrypted_data = pgtde_encrypt(plain_data);
 		pfree(plain_data);
@@ -345,7 +378,7 @@ enctext_in(PG_FUNCTION_ARGS)
 
 		PG_RETURN_BYTEA_P(result);
 	}
-	/* if encrypt_enable is not true return plain text */
+	/* if not return plain text */
 	else {
 		PG_RETURN_DATUM(DirectFunctionCall1(byteain, CStringGetDatum(input_text)));
 	}
@@ -371,8 +404,15 @@ enctext_out(PG_FUNCTION_ARGS)
 	Datum result;
 	Datum tmp_result;
 
+
+#if (!defined(WIN32)) && (PG_VERSION_NUM >= 100000)
+	/* if encrypt_enable and i am not walsender, decrypt input data and return */
+	if (encrypt_enable && !am_walsender )
+#else
 	/* if encrypt_enable is true, decrypt input data and return */
-	if (encrypt_enable) {
+	if (encrypt_enable)
+#endif		
+	{
 		/* if old key is exists, re-encryption is working now */
 		if (old_key_info != NULL) {
 			entry = old_key_info;
@@ -389,7 +429,7 @@ enctext_out(PG_FUNCTION_ARGS)
 		pfree(encrypted_data);
 		pfree(DatumGetPointer(tmp_result));
 	}
-	/* if encrypt_enable is false return ciphertext */
+	/* if not return ciphertext */
 	else {
 		result = DirectFunctionCall1(byteaout, PointerGetDatum(input_data));
 	}
@@ -418,8 +458,15 @@ encbytea_in(PG_FUNCTION_ARGS)
 	bytea    *result = NULL;         /* header + encrypted_data */
 	bytea    *plain_data = NULL;
 
+
+#if (!defined(WIN32)) && (PG_VERSION_NUM >= 100000)
+	/* If encrypt_enable and i am not logical worker, encrypting plain text and return */	
+	if (encrypt_enable && !IsLogicalWorker()) 
+#else
 	/* if encrypt_enable is true, encrypting plain text and return */
-	if (encrypt_enable) {
+	if (encrypt_enable) 
+#endif
+	{
 		/* get key and encryption algorithm and encrypt data */
 		plain_data = (bytea *) DatumGetPointer(DirectFunctionCall1(byteain, CStringGetDatum(input_text)));
 		encrypted_data = pgtde_encrypt(plain_data);
@@ -429,7 +476,7 @@ encbytea_in(PG_FUNCTION_ARGS)
 		pfree(encrypted_data);
 		PG_RETURN_BYTEA_P(result);
 	}
-	/* if encrypt_enable is not true return plain text */
+	/* if not return plain text */
 	else {
 		PG_RETURN_DATUM(DirectFunctionCall1(byteain, CStringGetDatum(input_text)));
 	}
@@ -456,8 +503,14 @@ encbytea_out(PG_FUNCTION_ARGS)
 	Datum result;
 	Datum tmp_result;
 
+#if (!defined(WIN32)) && (PG_VERSION_NUM >= 100000)
+	/* if encrypt_enable and i am not walsender, decrypt input data and return */
+	if (encrypt_enable && !am_walsender )
+#else
 	/* if encrypt_enable is true, decrypt input data and return */
-	if (encrypt_enable) {
+	if (encrypt_enable)
+#endif
+	{
 		/* if key is not set print error and exit */
 		if (old_key_info != NULL) {
 			entry = old_key_info;
@@ -475,7 +528,7 @@ encbytea_out(PG_FUNCTION_ARGS)
 		pfree(encrypted_data);
 		pfree(DatumGetPointer(tmp_result));
 	}
-	/* if encrypt_enable is false return ciphertext */
+	/* if not return ciphertext */
 	else {
 		result = DirectFunctionCall1(byteaout, PointerGetDatum(input_data));
 	}
@@ -636,7 +689,7 @@ drop_key_info(key_info* entry) {
 	if(entry != NULL) {
 		if (entry->key != NULL) {
 				/* do not leave anything relate to key info in memory*/
-				px_memset(entry->key,0,sizeof(entry->key));
+				px_memset(entry->key,0,VARSIZE(entry->key));
 				pfree(entry->key);
 			}
 			if (entry->algorithm != NULL) {

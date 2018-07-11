@@ -1,0 +1,29 @@
+#include <winver.h>
+#include "pg_config.h"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    1,2,1,0
+ PRODUCTVERSION 1,2,1,0
+ FILEFLAGSMASK  0x17L
+ FILEFLAGS      0x0L
+ FILEOS         VOS_NT_WINDOWS32
+ FILETYPE	VFT_DLL
+ FILESUBTYPE    0x0L
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+  BLOCK "000004b0"
+  BEGIN
+   VALUE "CompanyName",      "NEC Corporation"
+   VALUE "FileDescription",  "TDEforPG Free Edition DLL"
+   VALUE "FileVersion",      "1.2.1.0"
+   VALUE "LegalCopyright",   "Copyright (C) 2015-2018 NEC Corporation. All rights reserved."
+   VALUE "ProductName",      "Transparent Data Encryption for PostgreSQL Free Edition"
+   VALUE "ProductVersion",   "1.2.1.0"
+  END
+ END
+ BLOCK "VarFileInfo"
+ BEGIN
+  VALUE "Translation", 0x0, 1200
+ END
+END

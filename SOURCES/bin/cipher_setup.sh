@@ -23,6 +23,9 @@ export SCRPATH=../lib/init
 #activate db file directory path
 export INSTPATH=../sys
 
+#PostgreSQL version number
+PGVERSION=
+
 export PATH=${PSQLPATH}:${PATH}
 
 
@@ -157,6 +160,9 @@ validate(){
     exit 1;
   fi
 
+  # get PGVERSION
+  PGVERSION=`psql -t -c "show server_version_num;"` 
+
   #check existing of cipher_key_table
   CIPHER_EXIST=`psql -t -c "SELECT COUNT(*) FROM PG_TABLES WHERE TABLENAME='${KEYTBL}';"`
   if [ $CIPHER_EXIST -eq 1 ];
@@ -222,6 +228,12 @@ validate(){
   file_exist_check "${SCRPATH}/common_session_create.sql"
   #define session function A
   cat "${SCRPATH}/common_session_create.sql" >> "${INSTALLFILE}"
+	
+  # add parallel safe setting for PostgreSQL 9.6 and greater
+  if [ ${PGVERSION} -ge 90600 ]; then
+      file_exist_check "${SCRPATH}/pgtde_parallel_safe_setting.sql"
+	  cat "${SCRPATH}/pgtde_parallel_safe_setting.sql" >> "${INSTALLFILE}"
+  fi
 
   #run all query in installation file using transaction
   psql --set ON_ERROR_STOP=ON -1 -f "${INSTALLFILE}" 1>/dev/null 2>"${ERRFILE}"

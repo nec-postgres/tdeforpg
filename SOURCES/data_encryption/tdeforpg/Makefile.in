@@ -1,7 +1,5 @@
 
-INSTDIR = /usr/local/pgsql/lib
-
-PGSQL_SRC_PATH ?= /usr/local/src/postgresql-9.3.6
+PGSQL_SRC_PATH ?= 
 PGSQL_INCLUDE_PATH ?= $(PGSQL_SRC_PATH)/src/include
 PGSQL_LIBRARY_PATH ?= $(PGSQL_SRC_PATH)/contrib/pgcrypto
 export PGSQL_SRC_PATH
@@ -15,7 +13,7 @@ CC = /usr/bin/gcc
 ifeq ($(debug),yes)
   CFLAGS = -c -Wall -O0 -ggdb $(DEBUG) -fPIC
 else
-  CFLAGS = -c -Wall -O3 -fPIC
+  CFLAGS = -c -Wall -ggdb -O3 -fPIC
 endif
 
 LFLAGS = -L$(PGSQL_LIBRARY_PATH)
@@ -27,8 +25,16 @@ all: $(BINARY)
 $(BINARY): $(OBJS)
 	$(CC) -shared -o $(BINARY) $(OBJS) $(LFLAGS) $(LINKER)
 
+# remove unnecessary info from binary #
+ifneq ($(debug),yes)
+	objcopy --only-keep-debug data_encryption.so data_encryption.debug
+	strip --strip-debug data_encryption.so
+	strip --strip-unneeded data_encryption.so
+endif
+######################################## 
+
 %.o: %.c
 	$(CC) $(CFLAGS) $(IFLAGS) $<
 
 clean: 
-	rm -f $(BINARY) $(OBJS)
+	rm -f $(BINARY) $(OBJS) *debug*

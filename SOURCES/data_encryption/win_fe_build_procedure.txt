@@ -1,0 +1,90 @@
+Windows版のTDEforPGのビルドは、PostgreSQLのコントリブのビルドと同様です。
+大まかな手順は以下のようになります。
+
+1) ビルド環境の準備
+
+1.1) Windows版のPostgreSQLがビルドできる環境を用意する。
+
+     以下のPostgreSQLのマニュアルを参照してください。
+
+     https://www.postgresql.jp/document/current/html/install-windows.html
+
+     ★ PostgreSQL 95, 96のAES-NI対応pgcryptoをビルドするには、
+        opensslとビルドが必要です。
+        上記のURLを参考にして、opensslをインストールしてください。
+        なお、TDEforPGは openssl V1.0のみサポートします。
+        # 以下の2.3には、opensslとビルドするような設定ファイルconfig.plを
+        # コピーする手順があります。
+
+2) ソースの準備
+
+2.1) TDEforPGのソースをビルド環境のPostgreSQLソースのcontribフォルダにコピー
+    
+     以下のようにTDEforPGのソースを該当するビルド環境のPostgreSQLソースにコピーしてください。
+   
+    【TDEforPGソースコピー】
+     コピー元: ＜TDEforPGソースフォルダ＞\data_encryption\tdeforpg
+     コピー先: ＜PostgreSQLソースフォルダ＞\contrib\data_encryption 
+     ※ (コピー後に名前をtdeforpgからdata_encryptionに変更)
+
+2.2) AES-NI対応ソース適用
+     # PostgreSQL 10以降は、この手順が不要です。
+
+     PostgreSQL 9.5、9.6の標準では、pgcryptoのAES-NIをサポートしないため、
+     AES-NI対応 PostgreSQL 9.5、9.6 の pgcryptoをビルドするには、
+     以下のようにpgcryptoのソースを修正してください。
+
+    【AES-NI対応 openssl.cの置換】
+     コピー元: ＜TDEforPGソースフォルダ＞\data_encryption\pgcrypto-aes-ni\openssl.c
+     コピー先: ＜PostgreSQLソースフォルダ＞\contrib\pgcrypto\
+
+    【AES-NI対応 pgp-encrypt.cのパッチ適用】
+     パッチ: ＜TDEforPGソースフォルダ＞\data_encryption\pgcrypto-aes-ni\pgp-encrypt.patch
+     適用先のファイル: ＜PostgreSQLソースフォルダ＞\contrib\pgcrypto\pgp-encrypt.c
+
+2.3) PostgreSQLのビルドスクリプト修正
+
+    【Mkvcbuild.pmの修正】
+     以下の該当するPostgreSQLバージョンのMkvcbuild.pmのパッチをPostgreSQL
+     ビルド環境のものに適用してください。
+     パッチ: ＜TDEforPGソースフォルダ＞\data_encryption\msvc_tools\Mkvcbuild.pm.＜PostgreSQLのメジャーバージョン＞.diff
+     適用先のファイル: ＜PostgreSQLソースフォルダ(ビルド環境)＞\src\tools\msvc\Mkvcbuild.pm
+
+    【ビルド関連ファイル(win32ver.rc)コピー】
+     コピー元: ＜TDEforPGソースフォルダ＞\data_encryption\msvc_tools\win32ver.rc
+     コピー先: ＜PostgreSQLソースフォルダ＞\contrib\data_encryption\
+   
+    【ビルド関連ファイル(Makefile)コピー】
+     コピー元: ＜PostgreSQLソースフォルダ＞\contrib\data_encryption\Makefile.in
+     コピー先: ＜PostgreSQLソースフォルダ＞\contrib\data_encryption\Makefile
+
+    【ビルド関連ファイル(config.pl)コピー】
+     コピー元: ＜TDEforPGソースフォルダ＞\data_encryption\msvc_tools\config.pl
+     コピー先: ＜PostgreSQLソースフォルダ(ビルド環境)＞\src\tools\msvc\
+
+3 PostgreSQLのビルド
+
+3.1) 64ビットビルド環境を設定する。
+
+    Visual Studioによって、64ビットのビルド環境を適用してください。
+    
+    Visual Studio Communityである場合は、以下のコマンドの実行で適用可能です。
+    
+      ＜Visual Studio Communityインストールパス＞\Community\VC\Auxiliary\Build\vcvars64.bat
+    
+3.2) PostgreSQLビルド
+    
+    以下のコマンドを実行して、PostgreSQLをビルドしてください。
+    
+    ＜PostgreSQLソースフォルダ＞\src\tools\msvc\build.bat を実行する。
+
+4 ビルド後の物件
+
+4.1) 上記の手順によってビルドした物件は以下に格納されます。
+    
+   【TDEforPG】
+    ＜PostgreSQLソースフォルダ＞\Release\data_encryption\
+    
+   【pgcrypto】 
+    ＜PostgreSQLソースフォルダ＞\Release\pgcrypto\
+

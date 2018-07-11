@@ -205,10 +205,10 @@ SET check_function_bodies TO off;
 /* define index operator */
 	/* for encrypted text */
 	CREATE OPERATOR = (
-	leftarg = encrypt_text, rightarg = encrypt_text, procedure = enc_compeq_enctext, restrict = eqsel, join = eqjoinsel );
+		leftarg = encrypt_text, rightarg = encrypt_text, procedure = enc_compeq_enctext, restrict = eqsel, join = eqjoinsel, hashes, commutator = operator(=));
 	/* for encrypted binary */
 	CREATE OPERATOR = (
-	leftarg = encrypt_bytea, rightarg = encrypt_bytea, procedure = enc_compeq_encbytea, restrict = eqsel, join = eqjoinsel );
+		leftarg = encrypt_bytea, rightarg = encrypt_bytea, procedure = enc_compeq_encbytea, restrict = eqsel, join = eqjoinsel, hashes, commutator = operator(=));
 
 /* define index for encrypted type column */
 	/* define hash index for encrypted text */
